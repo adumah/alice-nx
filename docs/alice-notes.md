@@ -84,3 +84,17 @@ call and no access violation in any test so far (up to 8 minutes).
   press examined a drawing on the wall, which opens a text popup that only B closes, and the input loop sends no B. So
   the rest of the run sat on that popup with the game running. Wider coverage (Wonderland, combat, saving and loading)
   needs a person playing, or a smarter script.
+
+## Switch build without a renderer (2026-11-02)
+
+- `ALICE_RENUT=OFF tools/build_switch.sh -j 4`: the whole game compiles and links for the console (out/nx/alice.nro,
+  76 MB; 46 minutes on 8 cores at -j 4). It has no renderer, so on a console it can't show anything yet. It only
+  proves the translated code builds for aarch64 with devkitA64.
+- In stock Ryujinx (Ryubing 1.3.3, flatpak), the NRO starts: it reaches the SDK's Switch layer (docked mode, 1920x1080)
+  and maps the guest memory arena. Then committing guest memory fails (`AllocFixed: could not commit ... Failure
+  0x0000E401`), and the first guest access is an invalid memory access. sa2-nx's deko3d guide tested in **banjo-nx's
+  Ryujinx build**, with its three no-loader SDK changes, so stock Ryujinx doesn't seem to support the SDK's memory
+  commit. Not a sign of a bug in the port. A real console, or that Ryujinx build, is needed.
+- The test copy is in Ryujinx's own SD folder, `~/.var/app/io.github.ryubing.Ryujinx/config/Ryujinx/sdcard/switch/alice-nx`
+  (alice.nro, alice.toml without the asset pack, and game_root as a link to disc/). It's local only and holds the
+  game's translated code, so don't share it.
