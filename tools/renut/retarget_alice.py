@@ -39,7 +39,7 @@ FUNCTIONS = {  # Monster High -> Alice (None: not identified yet)
     '82670E88': None,        # D3DDevice_Resolve: inlined under LTCG; the copy worker is 82B5DF10, whose arguments
                              # differ from the wrapper's, so the hook needs rewriting, not just a new address
     '8266AC10': '82B54ED8',  # XGRegisterVertexShader
-    '82667AE0': None,        # XGRegisterPixelShader
+    '82667AE0': '82B54CE0',  # XGRegisterPixelShader
     '82668088': None,        # D3DDevice_CreateVertexDeclaration (candidates 82B4C970, 82B551A0)
     '8265C778': None,        # D3DResource_Destroy
     '82683188': None,        # D3D::InitializePresentationParameters
