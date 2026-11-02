@@ -60,6 +60,7 @@ offsets − 128 (+12708, +12792, +12112, +12944, +12940). Each one gets confirme
 | D3DDevice_DrawIndexedVertices | 82674BB8 | **82B56180** | Reads the index buffer (+12684), then the draw packets. Called by Unreal's `sub_82A52908`. |
 | DrawVerticesUP / DrawIndexedVerticesUP | 82674178 | **82B55368 / 82B55828** (to be confirmed by the census) | The only two functions setting the ring to +13716 after a copy. 82B55368 has 8+ game callers, 82B55828 has 2. |
 | Resolve (copy worker) | 8266FD30 | **82B5DF10** | The only function programming RB_COPY_CONTROL (0x2318). Under LTCG it's called straight from game code (`sub_82A53D20`, `82A54E80`, `82A55EC0`), with no 19-instruction wrapper. |
+| D3DResource_IsSet | 8265BD98 | **82B4C048** | Switch on the resource type: index buffer +12684, render targets +12688..+12700 and depth +12704, 16 stream sources from +12708, 26 textures from +12792, vertex shader +12944, pixel shader +12940. Callers `829A4488`, `82A57380`. |
 | XGRegisterVertexShader | 8266AC10 | **82B54ED8** | Clears 872 bytes, type 6, reference 1, physical part at +0x20, container at +0x368. Called by Unreal's `sub_82A57888`. |
 
 Still open, for the runtime census: ClearF (candidates `82B51E88`, `82B521D8`), XGRegisterPixelShader, the
@@ -110,9 +111,11 @@ the rule until checked.
 | GlobalQword, CreationThreadId, IsTitleProcess | 11008, 11016, 11020 | same | confirmed (CreateDevice) |
 | FenceCompletion, FenceTag, Flags, SwapFlags | 11024, 11036, 11068, 11069 | same | confirmed |
 | SwapFenceTag | 11056 | 11056? | not checked |
-| VertexDeclaration, StreamSources, StreamStrides, Textures | 12240, 12836, 12904, 12920 | 12112, 12708, 12776, 12792 | inferred (−128) |
+| VertexDeclaration, StreamStrides | 12240, 12904 | 12112, 12776 | inferred (−128) |
+| StreamSources [16], Textures [26] | 12836, 12920 | 12708, 12792 | confirmed (D3DResource_IsSet `82B4C048` loops 16 / 26 slots from these) |
 | IndexBuffer, RenderTargets, DepthStencil | 12812, 12816, 12832 | 12684, 12688, 12704 | confirmed |
-| PixelShader, VertexShader, Predication | 13068, 13072, 13084 | 12940, 12944, 12956 | inferred |
+| PixelShader, VertexShader | 13068, 13072 | 12940, 12944 | confirmed (D3DResource_IsSet) |
+| Predication | 13084 | 12956 | inferred |
 | InKickOff, VerticesRingEnd, CommandBuffer | 13600, 13844, 13920 | 13472, 13716, 13792 | confirmed |
 | PresentFenceTag, CriticalSection0/1 | 15344, 15348, 15376 | 15216, 15220, 15248 | inferred |
 | SwapCount, SideBuffer | 16968, 17136 | 16840, 17008 | confirmed (Swap; CreateDevice's 4800-byte alloc) |
