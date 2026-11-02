@@ -98,3 +98,16 @@ call and no access violation in any test so far (up to 8 minutes).
 - The test copy is in Ryujinx's own SD folder, `~/.var/app/io.github.ryubing.Ryujinx/config/Ryujinx/sdcard/switch/alice-nx`
   (alice.nro, alice.toml without the asset pack, and game_root as a link to disc/). It's local only and holds the
   game's translated code, so don't share it.
+
+### On a real Switch (2026-11-02, renderer off)
+
+Sent with `tools/send_switch.sh` to `sdmc:/switch/alice-nx/alice.nro`, game files in `sdmc:/switch/alice-nx/game_root/`.
+From its log (`sdmc:/switch/alice-nx/logs/alice_001.log`):
+- The guest memory arena maps (`Guest memory arena mapped: virtual base 0x...576754C000`): the 0xE401 commit failure
+  seen in stock Ryujinx doesn't happen on hardware.
+- No asset pack: "the game data is 4535 MB, over FAT32's 4 GB file limit". It falls back to the game folder: 1960
+  entries mounted in 5978 ms (the VFS index written to `cache/` speeds up later starts).
+- The game's code starts: function table initialised, audio up (48000 Hz, 2 channels).
+- Then `VdInitializeRingBuffer: no GPU emulation loaded; call ignored`, and nothing more logged: with Renut off there
+  is no GPU, so the first wait on a GPU fence never ends. A black screen, by design for this build. Next: Renut.
+- To do: the pack's 4 GB limit (FAT32). Split the pack, or leave the movies out of it.

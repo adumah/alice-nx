@@ -17,5 +17,6 @@ if [[ $# -gt 0 && "$1" != "--" ]]; then addr=(-a "$1"); shift; fi
 # This PC's address on the route to the Switch's network, for the game's log connection.
 host="$(ip -4 route get "${addr[1]:-192.168.0.1}" | sed -n 's/.* src \([0-9.]*\).*/\1/p')"
 mkdir -p "$root/out"
-"$nxlink" "${addr[@]}" -p alice-nx/alice.nro -s -- "$root/out/nx/alice.nro" --log_network="$host:28771" "$@" \
+# stdbuf: nxlink's output into a pipe is otherwise held back in blocks of 4 KB, so the log would lag by minutes.
+stdbuf -oL -eL "$nxlink" "${addr[@]}" -p alice-nx/alice.nro -s -- "$root/out/nx/alice.nro" --log_network="$host:28771" "$@" \
   2>&1 | tee "$root/out/nxlink.log"
