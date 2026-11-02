@@ -131,3 +131,20 @@ the rule until checked.
 Renut functions not found yet for Alice: BeginVertices, InitializePresentationParameters,
 InitializeApiState, InsertCallback. Under LTCG, some may be inlined into their callers, which
 would need a different hook point.
+
+## What this means for Renut (2026-11-02)
+
+Retargeting Renut to Alice is **not only a table of new addresses**. LTCG changed the shape of several functions that
+Renut replaces outright:
+
+| Renut hook | What Renut assumes (XDK) | Alice |
+|---|---|---|
+| Direct3D_CreateDevice | (Adapter, DeviceType, -, BehaviorFlags r6, PresentParameters r7, out r8). Renut replaces it whole and then calls InitializePresentationParameters (device, pp) and InitializeApiState (device) itself. | `82B5C288` keeps only r3 (passed on to the hardware path `82B66420` as its second argument), and BehaviorFlags is the constant 0x0C000001. Candidates for the two Init functions are among `82B66420`'s callees: `82B65F08` (it calls the state setters `82B51E88`/`82B521D8`, which fits InitializeApiState's default states) and `82B65C30` next to it. Not confirmed. |
+| D3DDevice_Resolve | an 11-argument wrapper | inlined; game code calls the copy worker `82B5DF10` directly |
+| D3DDevice_DrawVerticesUP | (device, type, count, data, stride) | `82B55368` with the stride in r6 |
+| CreateVertexDeclaration | (elements) returns a new object | `82B551A0` (elements, object) fills an object its callers allocated |
+
+These four hooks need Alice-specific versions. The work is to follow Renut's intent (what each hook must record or
+replace), read each function's real arguments from its callers, and test on PC against the emulated GPU frame by
+frame (`compare_video.py`), as the porting prompt's stage 4 asks. The other hooks map one to one
+(`tools/renut/retarget_alice.py`).
