@@ -15,6 +15,9 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 sa2="${SA2_NX:-$root/../sa2-nx}"
 build="$root/out/nx"
 jobs="${2:-$(nproc)}"
+# As tools/build_pc.sh: Renut stays out until it's retargeted to Alice (tools/renut/retarget_alice.py). Without it,
+# the NRO has no renderer: such a build only checks that the game's code compiles and links for the console.
+renut="${ALICE_RENUT:-OFF}"
 export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
 stub="$root/out/nvk-stub"
 if [[ ! -f "$stub/lib/libvulkan.a" ]]; then
@@ -28,7 +31,7 @@ python3 "$root/tools/disc_icon.py" "$root/assets/game_root" "$root/out/nx_icon.j
 if [[ ! -f "$build/build.ninja" ]]; then
   cmake -S "$root/app" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="$sa2/tools/switch/cmake/switch-devkitA64.cmake" -DDEVKITPRO="$DEVKITPRO" \
-    -DREXSDK_DIR="$sa2/sdk" -DREXGLUE_SWITCH_NVK_SDK="$stub" -DREXGLUE_SWITCH_NO_NVK=ON \
+    -DREXSDK_DIR="$sa2/sdk" -DREXGLUE_SWITCH_NVK_SDK="$stub" -DREXGLUE_SWITCH_NO_NVK=ON -DALICE_RENUT_RENDERER="$renut" \
     > "$root/out/nx_configure.log" 2>&1 || { tail -n 40 "$root/out/nx_configure.log"; exit 1; }
 fi
 set +e

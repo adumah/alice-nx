@@ -32,7 +32,8 @@ FUNCTIONS = {  # Monster High -> Alice (None: not identified yet)
     '82664278': '82B59050',  # D3DDevice_Swap
     '826747A0': '82B55D68',  # D3DDevice_DrawVertices
     '82674BB8': '82B56180',  # D3DDevice_DrawIndexedVertices
-    '82674178': None,        # D3DDevice_DrawVerticesUP (82B55368 or 82B55828: the census must tell which is which)
+    '82674178': None,        # D3DDevice_DrawVerticesUP is 82B55368, but LTCG changed its argument order (stride in
+                             # r6, not r7): the hook needs rewriting first (docs/d3d-census.md)
     '82673CB8': None,        # D3DDevice_BeginVertices
     '826629E0': '82B5D7E8',  # D3DDevice_ClearF
     '82670E88': None,        # D3DDevice_Resolve: inlined under LTCG; the copy worker is 82B5DF10, whose arguments

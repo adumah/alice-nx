@@ -58,7 +58,8 @@ offsets − 128 (+12708, +12792, +12112, +12944, +12940). Each one gets confirme
 | D3DDevice_Swap | 82664278 | **82B59050** | The only caller of VdSwap. Increments +16840. Copies 24 bytes of scaler parameters from arg 2 + 28. |
 | D3DDevice_DrawVertices | 826747A0 | **82B55D68** | Exactly 0x418 before DrawIndexedVertices, as in SA2 and Monster High. Same state flush (`sub_82B5A258`, `82B5B2A8`, `82B59B28` …) without the index buffer. Called by Unreal's `sub_82A52870`. |
 | D3DDevice_DrawIndexedVertices | 82674BB8 | **82B56180** | Reads the index buffer (+12684), then the draw packets. Called by Unreal's `sub_82A52908`. |
-| DrawVerticesUP / DrawIndexedVerticesUP | 82674178 | **82B55368 / 82B55828** (to be confirmed by the census) | The only two functions setting the ring to +13716 after a copy. 82B55368 has 8+ game callers, 82B55828 has 2. |
+| D3DDevice_DrawVerticesUP | 82674178 | **82B55368** | count × stride is `r5 × r6`, and stride / 4 goes to the byte at +12776 (StreamStrides, confirmed). **LTCG changed the argument order**: the stride arrives in r6, where the XDK's (device, type, count, data, stride) puts it in r7, so Renut's hook needs rewriting, not just a new address. Census: 1 a frame, 8+ game callers. |
+| D3DDevice_DrawIndexedVerticesUP | | **82B55828** | Seven arguments (r4-r10 all used, stride in r9), stride / 4 to +12776. Census: 34 a frame (Unreal's `82A531C8`, `82A53620`). |
 | D3DDevice_ClearF | 826629E0 | **82B5D7E8** | (device, flags, count, rects, ...): with count 0 the rect is 0,0 to the size in render target 0 (+12688) or, without one, the depth surface (+12704), from the surface's +36 field. 21 game call sites. Runtime: 10.9 a frame, the same rate as its workers `82B5D170` → `82B5CBD8` (takes the Z value in f1) → `82B5C980`. |
 | Resolve (copy worker) | 8266FD30 | **82B5DF10** | The only function programming RB_COPY_CONTROL (0x2318). Under LTCG it's called straight from game code (`sub_82A53D20`, `82A54E80`, `82A55EC0`), with no 19-instruction wrapper. |
 | D3DResource_IsSet | 8265BD98 | **82B4C048** | Switch on the resource type: index buffer +12684, render targets +12688..+12700 and depth +12704, 16 stream sources from +12708, 26 textures from +12792, vertex shader +12944, pixel shader +12940. Callers `829A4488`, `82A57380`. |
@@ -112,7 +113,8 @@ the rule until checked.
 | GlobalQword, CreationThreadId, IsTitleProcess | 11008, 11016, 11020 | same | confirmed (CreateDevice) |
 | FenceCompletion, FenceTag, Flags, SwapFlags | 11024, 11036, 11068, 11069 | same | confirmed |
 | SwapFenceTag | 11056 | 11056? | not checked |
-| VertexDeclaration, StreamStrides | 12240, 12904 | 12112, 12776 | inferred (−128) |
+| VertexDeclaration | 12240 | 12112 | inferred (−128) |
+| StreamStrides (u8 [16], stride / 4) | 12904 | 12776 | confirmed (both UP draws store there) |
 | StreamSources [16], Textures [26] | 12836, 12920 | 12708, 12792 | confirmed (D3DResource_IsSet `82B4C048` loops 16 / 26 slots from these) |
 | IndexBuffer, RenderTargets, DepthStencil | 12812, 12816, 12832 | 12684, 12688, 12704 | confirmed |
 | PixelShader, VertexShader | 13068, 13072 | 12940, 12944 | confirmed (D3DResource_IsSet) |
