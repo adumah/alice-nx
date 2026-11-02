@@ -59,6 +59,7 @@ offsets − 128 (+12708, +12792, +12112, +12944, +12940). Each one gets confirme
 | D3DDevice_DrawVertices | 826747A0 | **82B55D68** | Exactly 0x418 before DrawIndexedVertices, as in SA2 and Monster High. Same state flush (`sub_82B5A258`, `82B5B2A8`, `82B59B28` …) without the index buffer. Called by Unreal's `sub_82A52870`. |
 | D3DDevice_DrawIndexedVertices | 82674BB8 | **82B56180** | Reads the index buffer (+12684), then the draw packets. Called by Unreal's `sub_82A52908`. |
 | DrawVerticesUP / DrawIndexedVerticesUP | 82674178 | **82B55368 / 82B55828** (to be confirmed by the census) | The only two functions setting the ring to +13716 after a copy. 82B55368 has 8+ game callers, 82B55828 has 2. |
+| D3DDevice_ClearF | 826629E0 | **82B5D7E8** | (device, flags, count, rects, ...): with count 0 the rect is 0,0 to the size in render target 0 (+12688) or, without one, the depth surface (+12704), from the surface's +36 field. 21 game call sites. Runtime: 10.9 a frame, the same rate as its workers `82B5D170` → `82B5CBD8` (takes the Z value in f1) → `82B5C980`. |
 | Resolve (copy worker) | 8266FD30 | **82B5DF10** | The only function programming RB_COPY_CONTROL (0x2318). Under LTCG it's called straight from game code (`sub_82A53D20`, `82A54E80`, `82A55EC0`), with no 19-instruction wrapper. |
 | D3DResource_IsSet | 8265BD98 | **82B4C048** | Switch on the resource type: index buffer +12684, render targets +12688..+12700 and depth +12704, 16 stream sources from +12708, 26 textures from +12792, vertex shader +12944, pixel shader +12940. Callers `829A4488`, `82A57380`. |
 | XGRegisterVertexShader | 8266AC10 | **82B54ED8** | Clears 872 bytes, type 6, reference 1, physical part at +0x20, container at +0x368. Called by Unreal's `sub_82A57888`. |
@@ -121,7 +122,6 @@ the rule until checked.
 | SwapCount, SideBuffer | 16968, 17136 | 16840, 17008 | confirmed (Swap; CreateDevice's 4800-byte alloc) |
 | PerfFrequency, TitleMinusOne, BehaviorFlags | 21996, 23380, 24392 | 21868, 23252, 24264 | BehaviorFlags confirmed (CreateDevice stores the constant 0x0C000001: LTCG folded the argument); the others inferred |
 
-Renut functions not found yet for Alice: ClearF (the `82B51E88`/`82B521D8` candidates run 60-70 times a frame, too
-often for a clear), BeginVertices, CreateVertexDeclaration, D3DResource_Destroy, InitializePresentationParameters,
+Renut functions not found yet for Alice: BeginVertices, CreateVertexDeclaration, D3DResource_Destroy, InitializePresentationParameters,
 InitializeApiState, XGRegisterPixelShader, InsertCallback. Under LTCG, some may be inlined into their callers, which
 would need a different hook point.
