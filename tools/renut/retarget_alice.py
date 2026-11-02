@@ -40,7 +40,8 @@ FUNCTIONS = {  # Monster High -> Alice (None: not identified yet)
                              # differ from the wrapper's, so the hook needs rewriting, not just a new address
     '8266AC10': '82B54ED8',  # XGRegisterVertexShader
     '82667AE0': '82B54CE0',  # XGRegisterPixelShader
-    '82668088': None,        # D3DDevice_CreateVertexDeclaration (candidates 82B4C970, 82B551A0)
+    '82668088': None,        # D3DDevice_CreateVertexDeclaration: under LTCG an in-place init, 82B551A0 (elements,
+                             # object), so the hook needs rewriting first (docs/d3d-census.md)
     '8265C778': None,        # D3DResource_Destroy
     '82683188': None,        # D3D::InitializePresentationParameters
     '826827B8': None,        # D3D::InitializeApiState
