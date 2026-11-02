@@ -65,6 +65,8 @@ offsets − 128 (+12708, +12792, +12112, +12944, +12940). Each one gets confirme
 | Vertex declaration (in-place init) | CreateVertexDeclaration 82668088 | **82B551A0** | (elements r3, object r4): walks the 12-byte elements until stream 255, clears 56 + 12·n bytes of the object, type 0x00100005, reference 1, BaseFlush 0xFFFF0000, element count at +24, highest stream at +28. **Not CreateVertexDeclaration's shape**: under LTCG the callers (Unreal's `82A4EC38`, `82A54018`, `82A5C540`) allocate and this only fills the object, so Renut's hook (which returns a new object) needs rewriting. Census: 88 in the run. |
 | D3DResource_AddRef / D3DResource_Release | | **82B4BEC0 / 82B4BF38** | Atomic +1 / −1 of the reference count at +4 (lwarx/stwcx.), recursing into the parent (+24) for type 4 with bit 30 set. 48 and 91 callers. |
 | D3DResource_Destroy | 8265C778 | **82B4B730** | What Release calls when the count reaches 0. It also calls BlockOnFence: the GPU has to be done with the resource before it's freed. |
+| D3D::InitializePresentationParameters | 82683188 | **82B65F08** | (device r3, present parameters r4): reads the parameters' fields (+0, +4, +8, +16, +40, +64) and calls VdQueryVideoMode. The hardware path `82B66420` passes it the argument CreateDevice received, so under LTCG **CreateDevice takes only the D3DPRESENT_PARAMETERS pointer** (r3). |
+| D3D::InitializeApiState | 826827B8 | **82B65C30** | (device): fills the device's state from a static table at 0x822E0318 and reads BehaviorFlags (+24264). Called once, by the hardware path right after CreateDevice. |
 | Resolve (copy worker) | 8266FD30 | **82B5DF10** | The only function programming RB_COPY_CONTROL (0x2318). Under LTCG it's called straight from game code (`sub_82A53D20`, `82A54E80`, `82A55EC0`), with no 19-instruction wrapper. |
 | D3DResource_IsSet | 8265BD98 | **82B4C048** | Switch on the resource type: index buffer +12684, render targets +12688..+12700 and depth +12704, 16 stream sources from +12708, 26 textures from +12792, vertex shader +12944, pixel shader +12940. Callers `829A4488`, `82A57380`. |
 | XGRegisterVertexShader | 8266AC10 | **82B54ED8** | Clears 872 bytes, type 6, reference 1, physical part at +0x20, container at +0x368. Called by Unreal's `sub_82A57888`. |
@@ -129,8 +131,7 @@ the rule until checked.
 | SwapCount, SideBuffer | 16968, 17136 | 16840, 17008 | confirmed (Swap; CreateDevice's 4800-byte alloc) |
 | PerfFrequency, TitleMinusOne, BehaviorFlags | 21996, 23380, 24392 | 21868, 23252, 24264 | BehaviorFlags confirmed (CreateDevice stores the constant 0x0C000001: LTCG folded the argument); the others inferred |
 
-Renut functions not found yet for Alice: BeginVertices, InitializePresentationParameters,
-InitializeApiState, InsertCallback. Under LTCG, some may be inlined into their callers, which
+Renut functions not found yet for Alice: BeginVertices, InsertCallback. Under LTCG, some may be inlined into their callers, which
 would need a different hook point.
 
 ## What this means for Renut (2026-11-02)
@@ -140,7 +141,7 @@ Renut replaces outright:
 
 | Renut hook | What Renut assumes (XDK) | Alice |
 |---|---|---|
-| Direct3D_CreateDevice | (Adapter, DeviceType, -, BehaviorFlags r6, PresentParameters r7, out r8). Renut replaces it whole and then calls InitializePresentationParameters (device, pp) and InitializeApiState (device) itself. | `82B5C288` keeps only r3 (passed on to the hardware path `82B66420` as its second argument), and BehaviorFlags is the constant 0x0C000001. Candidates for the two Init functions are among `82B66420`'s callees: `82B65F08` (it calls the state setters `82B51E88`/`82B521D8`, which fits InitializeApiState's default states) and `82B65C30` next to it. Not confirmed. |
+| Direct3D_CreateDevice | (Adapter, DeviceType, -, BehaviorFlags r6, PresentParameters r7, out r8). Renut replaces it whole and then calls InitializePresentationParameters (device, pp) and InitializeApiState (device) itself. | `82B5C288` keeps only r3 (passed on to the hardware path `82B66420` as its second argument), and BehaviorFlags is the constant 0x0C000001. So CreateDevice is (present parameters). The two Init functions are `82B65F08` (presentation parameters) and `82B65C30` (API state), both called by `82B66420`. |
 | D3DDevice_Resolve | an 11-argument wrapper | inlined; game code calls the copy worker `82B5DF10` directly |
 | D3DDevice_DrawVerticesUP | (device, type, count, data, stride) | `82B55368` with the stride in r6 |
 | CreateVertexDeclaration | (elements) returns a new object | `82B551A0` (elements, object) fills an object its callers allocated |

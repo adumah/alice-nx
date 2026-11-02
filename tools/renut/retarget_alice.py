@@ -17,7 +17,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 ENGINE = os.path.join(ROOT, 'app', 'src', 'renut_engine')
 
 FUNCTIONS = {  # Monster High -> Alice (None: not identified yet)
-    '8265E2D8': '82B5C288',  # Direct3D_CreateDevice
+    '8265E2D8': '82B5C288',  # Direct3D_CreateDevice: under LTCG (present parameters) only; Renut's hook reads the
+                             # XDK's six arguments, so it needs rewriting before --apply (docs/d3d-census.md)
     '82673110': '82B57E60',  # CDevice::KickOff
     '82672D88': '82B57B80',  # CDevice::KickOffSegment
     '826733B8': '82B56A98',  # CDevice::BeginRingBig
@@ -43,8 +44,8 @@ FUNCTIONS = {  # Monster High -> Alice (None: not identified yet)
     '82668088': None,        # D3DDevice_CreateVertexDeclaration: under LTCG an in-place init, 82B551A0 (elements,
                              # object), so the hook needs rewriting first (docs/d3d-census.md)
     '8265C778': '82B4B730',  # D3DResource_Destroy (what Release 82B4BF38 calls at count 0)
-    '82683188': None,        # D3D::InitializePresentationParameters
-    '826827B8': None,        # D3D::InitializeApiState
+    '82683188': '82B65F08',  # D3D::InitializePresentationParameters (device, pp)
+    '826827B8': '82B65C30',  # D3D::InitializeApiState (device)
 }
 CONSTANTS = {
     'kVdGlobalDeviceImportSlot = 0x82000794': 'kVdGlobalDeviceImportSlot = 0x8200095C',
