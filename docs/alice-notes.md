@@ -65,3 +65,17 @@ addresses in `Default.xex` (image base 0x82000000).
   `lwzx`s a 256-entry function table in data (0x833370F0, then 0x833374F0 onward, 0x400 apart) and tail-calls it
   with `bctr`. They're generated as indirect calls, which is right. The tables are filled at run time, so a native
   whose address only appears there would surface at boot as "unregistered function".
+
+## Stage 3: first boots on PC, emulated GPU (2026-11-02)
+
+The first build (`tools/build_pc.sh -j 4`, Renut off) booted on its first run, with no fatal error, no unregistered
+call and no access violation in any test so far (up to 8 minutes).
+- Boot to the Spicy Horse logo, the "Press START" title, the main menu, difficulty select, the gamma and invert-look
+  screens of a new game, and the opening cinematic with subtitles. Audio (XMA) decodes in real time, and the
+  presenter acquires 99.9 % of frames without waiting.
+- `tools/boot_test.sh` runs with `--alice_screenshots` and `--input_script`. The menus' timing changes between runs,
+  so a fixed script can land in a different menu. One run reached the "Memories" screen (Bumby, 0/16 memories) after
+  START during or after the cinematic.
+- Every warning in the log is a normal existence probe: optional subtitle `.txt` and `.xxx` files beside the movies,
+  `*TextureS.xxx` beside the `.tfc` caches, localized TOCs (POL/RUS/SLO), `Binaries\EpicInternal.txt`, and the
+  `UPDATE:` device (no title update installed).
