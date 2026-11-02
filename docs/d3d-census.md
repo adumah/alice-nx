@@ -66,3 +66,59 @@ Still open, for the runtime census: ClearF (candidates `82B51E88`, `82B521D8`), 
 CreateVertexShader/CreatePixelShader path, IsFencePending, InsertCallback, CBlocker::Check, BeginVertices. Also how
 many shaders the game registers through XG versus loading them straight from its packages (gears2-nx saw only 7
 shader objects created in Gears of War 2).
+
+## Runtime census (2026-11-02, census build over 0x82A40000-0x82B80000, 7-minute run into the first gameplay area)
+
+Measured in the 350-410 s window of gameplay: 1800 Swaps in 60 s, a steady **30 fps** (the game's own cap).
+
+| Function | Calls | Notes |
+|---|---|---|
+| Swap `82B59050`, SynchronizeToPresentationInterval `82B58B18` | 1 / frame | Confirms both |
+| CreateDevice `82B5C288` | 1 in the run | |
+| DrawIndexedVertices `82B56180` | 444 / frame | |
+| DrawVertices `82B55D68` | 12 / frame | |
+| `82B55828` / `82B55368` (the UP draws) | 34 / frame, 1 / frame | `82B55828` is the main inline draw (probably DrawIndexedVerticesUP or the UP path Unreal uses for its UI and lines) |
+| Resolve worker `82B5DF10` | 21 / frame | |
+| `82B5BE88` | 748,000 / frame | A GPU-wait poll: CBlocker::Check (BlockOnFence calls it). A spin-wait that costs CPU on the Switch. |
+| `82B4D048` | 79,000 / frame | Another polling loop. To identify. |
+| XGRegisterVertexShader `82B54ED8` | **270 in the whole run** | Through Unreal's `82A57888` |
+
+**Shaders.** The emulated GPU built pipelines with **84 distinct vertex shaders** and 174 distinct pixel shaders in the
+same run, while 270 vertex shaders were registered through XGRegisterVertexShader. So, unlike Gears of War 2, Alice
+appears to create its vertex shaders through XG. Capturing them at registration (Monster High's Renut method) should
+work for vertex shaders. Not proven yet: the next check is to compare the registered microcode's hashes with the drawn
+ones. The pixel shader registration isn't found yet. Under LTCG it may be inlined into Unreal's shader cache code
+(`82A57CD0`, 64 calls a frame, which calls `82A57888` on a miss).
+
+## More identified (static, 2026-11-02)
+
+| What | Monster High | Alice | Evidence |
+|---|---|---|---|
+| D3DDevice_IsFencePending | 826719E8 | **82B583C0** | One argument. The device comes from an import slot chosen by KeGetCurrentProcessType == 2. Reads +11036 and +11024. |
+| VdGlobalDevice import slot | 0x82000794 | **0x8200095C** | IsFencePending: the title process (type 2) reads `lwz 2396(0x82000000)`; the system one reads 0x82000958 (VdGlobalXamDevice) |
+| Global qword copied into every device | 0x82C68C38 | **0x832F75D8** | CreateDevice: `lis r11,-31953` / `ld r11,30168(r11)` / `std r11,11008(r31)` |
+| CBlocker::Check | 8265D768 | **82B5BE88** (probable) | BlockOnFence's callees are KickOff, `82B5BDC0` and `82B5BE88`. 82B5BE88 is the one polled 748,000 times a frame. |
+
+## Renut's device offsets for Alice
+
+Renut (app/src/renut_engine, `kDeviceOffset*`) reads 36 device fields. The rule found so far: the fields up to +11069
+are Monster High's, and the fields from +12100 up are Monster High's − 128. Confirmed fields below. The rest follow
+the rule until checked.
+
+| Field | Monster High | Alice | Status |
+|---|---|---|---|
+| GlobalQword, CreationThreadId, IsTitleProcess | 11008, 11016, 11020 | same | confirmed (CreateDevice) |
+| FenceCompletion, FenceTag, Flags, SwapFlags | 11024, 11036, 11068, 11069 | same | confirmed |
+| SwapFenceTag | 11056 | 11056? | not checked |
+| VertexDeclaration, StreamSources, StreamStrides, Textures | 12240, 12836, 12904, 12920 | 12112, 12708, 12776, 12792 | inferred (−128) |
+| IndexBuffer, RenderTargets, DepthStencil | 12812, 12816, 12832 | 12684, 12688, 12704 | confirmed |
+| PixelShader, VertexShader, Predication | 13068, 13072, 13084 | 12940, 12944, 12956 | inferred |
+| InKickOff, VerticesRingEnd, CommandBuffer | 13600, 13844, 13920 | 13472, 13716, 13792 | confirmed |
+| PresentFenceTag, CriticalSection0/1 | 15344, 15348, 15376 | 15216, 15220, 15248 | inferred |
+| SwapCount, SideBuffer | 16968, 17136 | 16840, 17008 | confirmed (Swap; CreateDevice's 4800-byte alloc) |
+| PerfFrequency, TitleMinusOne, BehaviorFlags | 21996, 23380, 24392 | 21868, 23252, 24264 | BehaviorFlags confirmed (CreateDevice stores the constant 0x0C000001: LTCG folded the argument); the others inferred |
+
+Renut functions not found yet for Alice: ClearF (the `82B51E88`/`82B521D8` candidates run 60-70 times a frame, too
+often for a clear), BeginVertices, CreateVertexDeclaration, D3DResource_Destroy, InitializePresentationParameters,
+InitializeApiState, XGRegisterPixelShader, InsertCallback. Under LTCG, some may be inlined into their callers, which
+would need a different hook point.
