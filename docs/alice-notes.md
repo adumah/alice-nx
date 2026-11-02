@@ -111,3 +111,23 @@ From its log (`sdmc:/switch/alice-nx/logs/alice_001.log`):
 - Then `VdInitializeRingBuffer: no GPU emulation loaded; call ignored`, and nothing more logged: with Renut off there
   is no GPU, so the first wait on a GPU fence never ends. A black screen, by design for this build. Next: Renut.
 - To do: the pack's 4 GB limit (FAT32). Split the pack, or leave the movies out of it.
+
+## Stage 4: Renut on PC (2026-11-02)
+
+The hooks are retargeted and rewritten for Alice's LTCG Direct3D (docs/d3d-census.md, "Renut's hooks for Alice").
+Built with `ALICE_RENUT=ON tools/build_pc.sh`, run with `--sa2_renderer=renut --renut_gpu_backend=vulkan`.
+
+- Two runs capture the shaders: the first met 176, the second 117 more (293 in out/pc/shader_capture/); each
+  rebuild translates them. With all of them built, nothing is "not in the shader cache".
+- UE3's rendering thread hung in `sub_82B4D048` (IDirect3DQuery9::GetData, found with a gdb backtrace of every
+  thread: the guest functions are host symbols): occlusion queries (type 9) wait for counts the GPU writes into the
+  query's memory. Hooked: an issued occlusion query answers "every sample passed", a screen extent query zeros.
+- After that: 200 s with no hang, 30.00 fps, about 32,800 draws a second at the menu (all drawn: depth prepass, UI),
+  resolves and targets as expected (`--banjo_renut_diag_resolve_trace=true`: the scene at 1280x720, the bloom chain
+  down to 1x1, the final resolve of the back buffer 400007C0 into the front buffer texture 40001970 that Swap shows).
+- **The picture is black**: every screenshot's pixels are 0, at 20 s (the intro movie) as at the menu. Ruled out:
+  the scan-out gamma ramp (`--sa2_renut_gamma_ramp=false`), the snapshot deltas (`--sa2_renut_snapshot_deltas=false`),
+  the minimized window (Renut's capture draws offscreen), the no-hardware flag (Alice's Direct3D never tests it), the
+  viewport (Alice's SetViewport writes the PA_CL_VPORT floats at 10504-10524). The Vulkan validation layer is not
+  installed here. Next: find where the colour is lost (a draw's output, a resolve, or the present), e.g. by reading a
+  render target back after a known draw.

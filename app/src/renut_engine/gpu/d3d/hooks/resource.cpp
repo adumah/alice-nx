@@ -1693,7 +1693,7 @@ u32 AddRefResource(u32 resource) {
 // BlockOnFence: the render thread is then past it) and frees it.
 
 // void D3DResource_Destroy(D3DResource*) [sub_8254A200; N&B 0x822084F0]
-BANJO_RENUT_HOOK_RAW(sub_8265C778) {
+BANJO_RENUT_HOOK_RAW(sub_82B4B730) {
   const u32 resource = ctx.r3.u32;
   render_thread::Queue([resource] {
     ReleaseHostSurfaceLocked(resource);
@@ -1701,5 +1701,5 @@ BANJO_RENUT_HOOK_RAW(sub_8265C778) {
     ReleaseGuestShaderLocked(resource);
     ReleaseGuestDeclarationLocked(resource);
   });
-  __imp__sub_8265C778(ctx, base);
+  __imp__sub_82B4B730(ctx, base);
 }

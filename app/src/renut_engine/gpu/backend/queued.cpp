@@ -194,6 +194,8 @@ struct DeferredDraw {
   DrawCapture *capture = nullptr;  // owned (g_capture_pool)
   const u8 *scratch = nullptr;
   u32 bytes = 0;
+  const u8 *index_scratch = nullptr;  // alice-nx (2026-11-02): BeginIndexedVertices' indices
+  u32 index_bytes = 0;
 };
 std::mutex g_deferred_mutex;
 std::unordered_map<u32, DeferredDraw> g_deferred;
@@ -234,7 +236,8 @@ constexpr u32 DeltaChunkSize(u32 i) {
 // swap flags: the hooks read and write them on the live device). Their chunks are not compared; the render thread's
 // device keeps them as the frame's whole copy had them.
 constexpr u32 kDeltaUnreadEnd = kDeltaVertexF - 0x300;  // 0x480: the fetch constants' start
-constexpr u32 kDeltaPrivateUnreadBegin = 11008, kDeltaPrivateUnreadEnd = 12224;
+// alice-nx (2026-11-02): up to 12096, the last chunk boundary before Alice's vertex declaration (12120; SA2 12224).
+constexpr u32 kDeltaPrivateUnreadBegin = 11008, kDeltaPrivateUnreadEnd = 12096;
 constexpr bool DeltaChunkRead(u32 i) {
   const u32 at = DeltaChunkOffset(i);
   return !(at < kDeltaUnreadEnd || (at >= kDeltaPrivateUnreadBegin && at + 64 <= kDeltaPrivateUnreadEnd));
@@ -611,7 +614,8 @@ void QueueDraw(u32 device_va, const DrawCall &call, u32 up_vertex_bytes, u32 up_
   QueueCapture(capture);
 }
 
-void QueueDeferredDraw(u32 device_va, const DrawCall &call, const u8 *scratch, u32 bytes) {
+void QueueDeferredDraw(u32 device_va, const DrawCall &call, const u8 *scratch, u32 bytes,
+                       const u8 *index_scratch, u32 index_bytes) {
   FlushDeferredVertices(device_va);
   RunReadyCallbacks();
   // sa2-nx (2026-10-20, sa2_renut_deferred_chain, from futari-nx via peggle2-nx): a Begin*Vertices draw of the chain
@@ -636,7 +640,7 @@ void QueueDeferredDraw(u32 device_va, const DrawCall &call, const u8 *scratch, u
     if (!delta)
       return;
     std::lock_guard lock(g_deferred_mutex);
-    g_deferred[device_va] = {delta, scratch, bytes};
+    g_deferred[device_va] = {delta, scratch, bytes, index_scratch, index_bytes};
     g_deferred_count.store(g_deferred.size(), std::memory_order_release);
     return;
   }
@@ -660,7 +664,7 @@ void QueueDeferredDraw(u32 device_va, const DrawCall &call, const u8 *scratch, u
   std::lock_guard lock(g_deferred_mutex);
   DeferredDraw &slot = g_deferred[device_va];
   g_capture_pool.Give(slot.capture);  // one not flushed (the original replaced it the same way)
-  slot = {capture, scratch, bytes};
+  slot = {capture, scratch, bytes, index_scratch, index_bytes};
   g_deferred_count.store(g_deferred.size(), std::memory_order_release);
 }
 
@@ -684,6 +688,8 @@ void FlushDeferredVertices(u32 device_va) {
     g_deferred_count.store(g_deferred.size(), std::memory_order_release);
   }
   deferred.capture->vertices.assign(deferred.scratch, deferred.scratch + deferred.bytes);
+  if (deferred.index_bytes)
+    deferred.capture->indices.assign(deferred.index_scratch, deferred.index_scratch + deferred.index_bytes);
   QueueCapture(deferred.capture);
 }
 

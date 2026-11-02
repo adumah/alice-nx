@@ -7,9 +7,9 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 sa2="${SA2_NX:-$root/../sa2-nx}"
 build="$root/out/pc"
 jobs="${2:-$(nproc)}"
-# Renut's hooks replace the generated sub_X of the addresses in app/src/renut_engine, which are still Monster High's
-# until Alice's Direct3D census (docs/alice-notes.md) retargets them: linked now, they would replace unrelated Alice
-# functions. Off by default; ALICE_RENUT=ON once retargeted.
+# ALICE_RENUT=ON links Renut's renderer (its hooks are retargeted to Alice: docs/d3d-census.md); it then runs with
+# --sa2_renderer=renut, and the emulated GPU stays the default. Each new shader it meets is captured to
+# out/pc/shader_capture/ and translated by the next build. Off by default while its picture is black.
 renut="${ALICE_RENUT:-OFF}"
 mkdir -p "$root/out"
 if [[ ! -f "$build/build.ninja" ]]; then

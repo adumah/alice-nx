@@ -234,6 +234,49 @@ u32 D3DDevice_BeginVertices_hook(u32 device, u32 primitive, u32 vertex_count, u3
   return scratch;
 }
 
+// alice-nx (2026-11-02): HRESULT D3DDevice_BeginIndexedVertices(D3DDevice*, D3DPRIMITIVETYPE, INT BaseVertexIndex,
+//     UINT NumVertices, UINT IndexCount, D3DFORMAT IndexDataFormat, UINT VertexStreamZeroStride, void **ppIndexData,
+//     void **ppVertexData) [Alice's sub_82B55828]. As BeginVertices, with the indices in the device's scratch after the
+// vertices (16-byte aligned); both are copied at the device's next hook. Alice's UE3 draws its UI and lines with it.
+// Failure is E_OUTOFMEMORY (kE_OUTOFMEMORY, device.cpp), as the original's.
+
+u32 D3DDevice_BeginIndexedVertices_hook(u32 device, u32 primitive, i32 base_vertex, u32 vertex_count,
+                                        u32 index_count, u32 index_format, u32 stride, u32 index_out,
+                                        u32 vertex_out) {
+  const bool indices_32 = (index_format & 4) != 0;  // D3DFMT_INDEX32: the original's test
+  const u64 vertex_bytes = u64(vertex_count) * stride;
+  const u64 index_offset = (vertex_bytes + 15) & ~u64(15);
+  const u64 index_bytes = u64(index_count) * (indices_32 ? 4 : 2);
+  if (!vertex_bytes || !index_bytes || index_offset + index_bytes > kVerticesScratchSize)
+    return kE_OUTOFMEMORY;
+  StoreU32(device + d3d::kDeviceOffsetVerticesRingEnd,
+           LoadU32(device + u32(offsetof(d3d::Device, m_pRing))));
+  const u32 scratch = VerticesScratch(device);
+  if (!scratch)
+    return kE_OUTOFMEMORY;
+  DrawCall call;
+  call.primitive = primitive;
+  call.indexed = true;
+  call.base_vertex = base_vertex;
+  call.count = index_count;
+  call.up_vertices = GuestPtr<const u8>(scratch);
+  call.up_stride = stride;
+  call.up_vertex_count = vertex_count;
+  call.up_indices = GuestPtr<const u8>(scratch + u32(index_offset));
+  call.up_indices_32 = indices_32;
+  if (IsRecordingCommandBuffer(device))
+    RecordDeferredDraw(device, call, call.up_vertices, u32(vertex_bytes), call.up_indices, u32(index_bytes));
+  else if (Active())
+    QueueDeferredDraw(device, call, call.up_vertices, u32(vertex_bytes), call.up_indices, u32(index_bytes));
+  else
+    FlushDeferredVertices(device);
+  if (index_out)
+    StoreU32(index_out, scratch + u32(index_offset));
+  if (vertex_out)
+    StoreU32(vertex_out, scratch);
+  return 0;  // S_OK
+}
+
 // A clear: the renderer's, recorded or queued, then N&B's device work.
 // whole_target: BeginTiling's, of one tile's worth of EDRAM, which on the
 // host is the whole tiled target.
@@ -599,34 +642,48 @@ void QueueHostResolve(u32 device, u32 flags, const ClearRect *rect, u32 dest_tex
 
 }  // namespace
 
-BANJO_RENUT_HOOK(sub_826747A0, D3DDevice_DrawVertices_hook);  // D3DDevice_DrawVertices [0x8222C7A0]
-BANJO_RENUT_HOOK(sub_82674BB8, D3DDevice_DrawIndexedVertices_hook);  // D3DDevice_DrawIndexedVertices [0x826567C8]
-BANJO_RENUT_HOOK(sub_82674178, D3DDevice_DrawVerticesUP_hook);  // D3DDevice_DrawVerticesUP [0x8222E520]
-BANJO_RENUT_HOOK(sub_82673CB8, D3DDevice_BeginVertices_hook);  // D3DDevice_BeginVertices [0x8222CC50]
+BANJO_RENUT_HOOK(sub_82B55D68, D3DDevice_DrawVertices_hook);  // D3DDevice_DrawVertices [0x8222C7A0]
+// alice-nx (2026-11-02): Alice's (sub_82B56180) has no BaseVertexIndex under LTCG: (device, primitive, StartIndex r5,
+// IndexCount r6); it writes VGT_INDX_OFFSET (0x2102) as the constant 0 and splits IndexCount above 65535.
+BANJO_RENUT_HOOK_RAW(sub_82B56180) {
+  D3DDevice_DrawIndexedVertices_hook(ctx.r3.u32, ctx.r4.u32, 0, ctx.r5.u32, ctx.r6.u32);
+}
+// alice-nx (2026-11-02): no DrawVerticesUP in Alice (only Begin(Indexed)Vertices and SetStreamSource set stream 0's
+// stride, docs/d3d-census.md): its hook is dropped.
+BANJO_RENUT_HOOK(sub_82B55368, D3DDevice_BeginVertices_hook);  // D3DDevice_BeginVertices [0x8222CC50]
+// The ninth argument, ppVertexData, is in the caller's argument word at +84 (the original reads it there).
+BANJO_RENUT_HOOK_RAW(sub_82B55828) {
+  ctx.r3.u64 = D3DDevice_BeginIndexedVertices_hook(ctx.r3.u32, ctx.r4.u32, i32(ctx.r5.u32), ctx.r6.u32, ctx.r7.u32,
+                                                   ctx.r8.u32, ctx.r9.u32, ctx.r10.u32, LoadU32(ctx.r1.u32 + 84));
+}
 
 // void D3DDevice_ClearF(D3DDevice*, DWORD Flags, const D3DRECT *pRect, const D3DVECTOR4 *pColor, float Z,
 //     DWORD Stencil) [sub_82563978; N&B 0x822811A0]: Z in f1 (r7's slot), Stencil in r8.
-BANJO_RENUT_HOOK_RAW(sub_826629E0) {
+// alice-nx (2026-11-02): Alice's (sub_82B5D7E8) has no Stencil under LTCG: neither it nor its worker sub_82B5D170
+// (device, flags, rect, color, f1 Z) reads r8, which ClearF overwrites first. The stencil clears to 0.
+BANJO_RENUT_HOOK_RAW(sub_82B5D7E8) {
   const u32 device = ctx.r3.u32, flags = ctx.r4.u32, rect_va = ctx.r5.u32, color_va = ctx.r6.u32;
   ClearRect rect;
   const bool has_rect = rect_va && ReadRect(rect_va, rect);
   float color[4] = {0, 0, 0, 0};
   if (color_va)
     ReadVector4(color_va, color);
-  QueueHostClear(device, flags, has_rect ? &rect : nullptr, color, float(ctx.f1.f64), ctx.r8.u32);
-  __imp__sub_826629E0(ctx, base);
+  QueueHostClear(device, flags, has_rect ? &rect : nullptr, color, float(ctx.f1.f64), 0);
+  __imp__sub_82B5D7E8(ctx, base);
 }
 
 // void D3DDevice_Resolve(D3DDevice*, DWORD Flags, const D3DRECT *pSourceRect, D3DBaseTexture *pDestTexture,
 //     const D3DPOINT *pDestPoint, UINT DestLevel, UINT DestSliceOrFace, const D3DVECTOR4 *pClearColor, float ClearZ,
-//     DWORD ClearStencil, const D3DRESOLVE_PARAMETERS *pParameters) [sub_825656F8; N&B 0x8222D6C8]: ClearZ in f1,
-// ClearStencil and pParameters in the caller's argument words at +92 and +100 (sub_825656F8 reads them there). Every
-// resolve of SA2 comes here: the game's, the Present's and Direct3D's own (sub_825645A0, the core, has no other
-// caller).
-BANJO_RENUT_HOOK_RAW(sub_82670E88) {
+//     DWORD ClearStencil, const D3DRESOLVE_PARAMETERS *pParameters) [sub_825656F8; N&B 0x8222D6C8].
+// alice-nx (2026-11-02): under LTCG Alice has no Resolve wrapper. Its 10 resolves (the game's 9 and Direct3D's Present
+// sub_82B6761C) call the worker sub_82B5DF10 straight, with neither DestSliceOrFace nor pParameters:
+// (device r3, Flags r4, pSourceRect r5, pDestTexture r6, pDestPoint r7, DestLevel r8 (every caller passes 0; non-zero,
+// the worker takes the level's offset), pClearColor r9 (null: its default), ClearZ f1 (r10's slot), ClearStencil in the
+// caller's argument word at +84). So the worker is the hook: the host work first, then Alice's own device work.
+BANJO_RENUT_HOOK_RAW(sub_82B5DF10) {
   const u32 device = ctx.r3.u32, flags = ctx.r4.u32, rect_va = ctx.r5.u32, dest_texture = ctx.r6.u32;
-  const u32 point_va = ctx.r7.u32, dest_level = ctx.r8.u32, dest_slice = ctx.r9.u32, color_va = ctx.r10.u32;
-  const u32 clear_stencil = LoadU32(ctx.r1.u32 + 92);
+  const u32 point_va = ctx.r7.u32, dest_level = ctx.r8.u32, color_va = ctx.r9.u32;
+  const u32 clear_stencil = LoadU32(ctx.r1.u32 + 84);
   ClearRect rect;
   const bool has_rect = rect_va && ReadRect(rect_va, rect);
   i32 dest_x = 0, dest_y = 0;
@@ -634,7 +691,7 @@ BANJO_RENUT_HOOK_RAW(sub_82670E88) {
     dest_x = i32(u32(p[0]));
     dest_y = i32(u32(p[1]));
   }
-  QueueHostResolve(device, flags, has_rect ? &rect : nullptr, dest_texture, dest_x, dest_y, dest_level, dest_slice,
-                   color_va, float(ctx.f1.f64), clear_stencil);
-  __imp__sub_82670E88(ctx, base);
+  QueueHostResolve(device, flags, has_rect ? &rect : nullptr, dest_texture, dest_x, dest_y, dest_level, 0, color_va,
+                   float(ctx.f1.f64), clear_stencil);
+  __imp__sub_82B5DF10(ctx, base);
 }

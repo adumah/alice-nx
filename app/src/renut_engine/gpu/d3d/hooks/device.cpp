@@ -105,25 +105,27 @@ constexpr u8 kDeviceFlagImmediateFences = 0x02;
 constexpr u32 kDeviceOffsetFenceCompletion = 11024;  // [10896]
 // Nonzero while a KickOff is in progress (BlockOnFence does not kick then).
 // sa2-nx: the word SA2's CDevice::BlockOnFence (sub_8254D6E8) tests [13232].
-constexpr u32 kDeviceOffsetInKickOff = 13600;
+constexpr u32 kDeviceOffsetInKickOff = 13472;  // alice-nx: Alice's (SA2 13600)
 // Side buffer (0x12C0 bytes) every device gets.
-constexpr u32 kDeviceOffsetSideBuffer = 17136;  // [16728]
+constexpr u32 kDeviceOffsetSideBuffer = 17008;  // [16728] (alice-nx: Alice's CreateDevice sub_82B5C288; SA2 17136)
 constexpr u32 kSideBufferSize = 0x12C0;
 // Set to -1 by the device-type-2 path.
-constexpr u32 kDeviceOffsetsMinusOne[] = {21968, 21972, 15340};  // [21560, 21564, 14936]
+// alice-nx: Alice's hardware path (sub_82B66420) sets the first two; the third is the type-2 path's, which Alice
+// does not have (SA2 21968, 21972, 15340).
+constexpr u32 kDeviceOffsetsMinusOne[] = {21840, 21844, 15212};  // [21560, 21564, 14936]
 constexpr u32 kDeviceTypeNoHardware = 2;
 // Copied from the global qword at 0x82F39B38 into every device.
 constexpr u32 kDeviceOffsetGlobalQword = 11008;  // [10880]
-constexpr u32 kGlobalQwordVa = 0x82C68C38;  // [0x82F39B38]
+constexpr u32 kGlobalQwordVa = 0x832F75D8;  // [0x82F39B38]
 // Hardware-path fields: two critical sections, QueryPerformanceFrequency and
 // its reciprocal as floats, and 41 words set to -1.
-constexpr u32 kDeviceOffsetCriticalSection0 = 15348;  // [14944]
-constexpr u32 kDeviceOffsetCriticalSection1 = 15376;  // [14972]
-constexpr u32 kDeviceOffsetPerfFrequency = 21996;  // [21588]
-constexpr u32 kDeviceOffsetTitleMinusOne = 23380;
+constexpr u32 kDeviceOffsetCriticalSection0 = 15220;  // [14944] (alice-nx: sub_82B66420; SA2 15348)
+constexpr u32 kDeviceOffsetCriticalSection1 = 15248;  // [14972] (alice-nx: sub_82B66420; SA2 15376)
+constexpr u32 kDeviceOffsetPerfFrequency = 21868;  // [21588] (alice-nx: sub_82B66420; SA2 21996)
+constexpr u32 kDeviceOffsetTitleMinusOne = 23664;  // alice-nx: sub_82B66420's 41 words (SA2 23380)
 // Import slot holding the address of the kernel's VdGlobalDevice variable.
 // sa2-nx: SA2's (sub_8255CDA0 stores the title device there) [0x820007FC].
-constexpr u32 kVdGlobalDeviceImportSlot = 0x82000794;
+constexpr u32 kVdGlobalDeviceImportSlot = 0x8200095C;
 
 constexpr u32 kE_OUTOFMEMORY = 0x8007000Eu;
 
@@ -865,7 +867,7 @@ void D3DDevice_RunCommandBuffer_hook(u32 device_va, u32 command_buffer,
 // The frame goes to the render thread, which presents it; the game thread
 // goes on with the next one, waiting only when it is more than
 // render_thread::kMaxFramesAhead ahead.
-constexpr u32 kSa2DeviceOffsetGammaRamp = 15408;  // sa2-nx: SA2's +0x3A9C (the +404 block)
+constexpr u32 kSa2DeviceOffsetGammaRamp = 15280;  // alice-nx: Alice's, which its Swap sub_82B59050 reads (SA2 15408)
 
 // sa2-nx (2026-10-20): the SDK's core layout (system/xthread.cpp).
 REXCVAR_DEFINE_BOOL(sa2_renut_core_layout, true, "SA2/Renderer",
@@ -1297,24 +1299,30 @@ void SetFence(u32 device_va) {
 //     first (sa2_renut_hooks.cpp).
 //   - SA2's ring segment allocator (sub_8254DA90) rewinds the sink like the others.
 
-REX_EXTERN(__imp__sub_8265E2D8);  // Direct3D_CreateDevice, the original
-REX_EXTERN(__imp__sub_82683188);  // D3D::InitializePresentationParameters (CDevice*, D3DPRESENT_PARAMETERS*)
-REX_EXTERN(__imp__sub_826827B8);  // D3D::InitializeApiState (CDevice*)
+// alice-nx (2026-11-02): Alice's Direct3D (2.0.20353, LTCG) has no device-type-2 path to borrow. Its
+// Direct3D_CreateDevice (sub_82B5C288, which under LTCG takes only the present parameters) allocates and clears the
+// device, sets the fields every device gets (the global qword, the creating thread, IsTitleProcess, the side buffer,
+// BehaviorFlags 0x0C000001) and calls the hardware path sub_82B66420 (CDevice*, D3DPRESENT_PARAMETERS*); a non-zero
+// return keeps the device (the global at 0x8335016C), zero releases it. So the hardware path is the hook. It does what
+// SA2's hook did after SA2's no-hardware device, from Alice's hardware path minus the GPU (VdInitializeEngines, the
+// ring and the engines' setup sub_82B58450 / sub_82B5BF60 / sub_82B5C0D8 / sub_82B61630 / sub_82B549A0, the XConfig
+// read, the gamma and display calls after InitializeApiState): the critical sections, VdGlobalDevice, the fence words
+// (+11024, +11028), XenonGpu_Initialize (sub_82B619A0: the register image's defaults, into the ring sink),
+// InitializePresentationParameters, InitializeApiState and the timer frequency. The device carries SA2's no-hardware
+// flag, as SA2's title device did.
+REX_EXTERN(__imp__sub_82B619A0);  // D3D::XenonGpu_Initialize (CDevice*)
+REX_EXTERN(__imp__sub_82B65F08);  // D3D::InitializePresentationParameters (CDevice*, D3DPRESENT_PARAMETERS*)
+REX_EXTERN(__imp__sub_82B65C30);  // D3D::InitializeApiState (CDevice*)
 
 namespace {
 
-// HRESULT Direct3D_CreateDevice(UINT Adapter, D3DDEVTYPE DeviceType, void*, DWORD BehaviorFlags,
-//     D3DPRESENT_PARAMETERS*, IDirect3DDevice9 **ppReturnedDeviceInterface) [sub_8254FC10; N&B 0x8264DF28]
-void Sa2CreateDevice(PPCContext &ctx, uint8_t *base) {
-  const u32 device_type = ctx.r4.u32;
-  u32 behavior_flags = ctx.r6.u32;
-  const u32 present_parameters = ctx.r7.u32;
-  const u32 out_va = ctx.r8.u32;
-  const bool title_device = device_type != kDeviceTypeNoHardware;
-  if (!records::Init()) {
-    ctx.r3.u64 = kE_OUTOFMEMORY;
-    return;
-  }
+// BOOL D3D::InitializeHardwareDevice(CDevice*, D3DPRESENT_PARAMETERS*) [sub_82B66420]
+u32 AliceInitializeDevice(PPCContext &ctx, uint8_t *base) {
+  const u32 device_va = ctx.r3.u32;
+  const u32 present_parameters = ctx.r4.u32;
+  native::Device d = native::DeviceAt(device_va);
+  if (!d || !records::Init())
+    return 0;
   if (!g_ring_sink)
     g_ring_sink = records::AllocPhysicalBlock(kRingSinkSize);
   if (!g_ring_data)
@@ -1322,64 +1330,48 @@ void Sa2CreateDevice(PPCContext &ctx, uint8_t *base) {
   const u32 fence_va = records::AllocPhysicalBlock(0x80 + 0x20);
   if (!g_ring_sink || !g_ring_data || !fence_va) {
     RGPU_ERROR("Direct3D_CreateDevice: guest allocation failed");
-    ctx.r3.u64 = kE_OUTOFMEMORY;
-    return;
+    return 0;
   }
   std::memset(GuestPtr<u8>(g_ring_sink), 0, kRingSinkSize);
   std::memset(GuestPtr<u8>(fence_va), 0, 0x80 + 0x20);
 
-  // SA2's own no-hardware device.
-  ctx.r4.u64 = kDeviceTypeNoHardware;
-  __imp__sub_8265E2D8(ctx, base);
-  if (ctx.r3.u32 != 0)
-    return;
-  const u32 device_va = LoadGuestU32(out_va);
-  native::Device d = native::DeviceAt(device_va);
-  if (!d) {
-    ctx.r3.u64 = kE_OUTOFMEMORY;
-    return;
-  }
   u8 *bytes = d.bytes;
-  // Its ring was the side buffer, marked out of memory (sub_8254D040): from here the sink. Fences complete as they
-  // are written until the title device is set up.
-  bytes[kDeviceOffsetFlags2] &= u8(~0x20);
-  bytes[kDeviceOffsetFlags2] |= kDeviceFlagImmediateFences;
+  // No ring of its own: the sink. Fences complete as they are written until the device is set up.
   WriteU32(bytes, kDeviceOffsetFenceCompletion, fence_va);
   WriteU32(bytes, 11028, fence_va + 0x80);  // the swap's scratch word (SynchronizeToPresentationInterval)
+  bytes[kDeviceOffsetFlags] |= kDeviceFlagNoHardware;
+  bytes[kDeviceOffsetFlags2] &= u8(~0x20);
+  bytes[kDeviceOffsetFlags2] |= kDeviceFlagImmediateFences;
   native::RewindRing(d);
 
-  if (title_device) {
-    RtlInitializeCriticalSection(device_va + kDeviceOffsetCriticalSection0);
-    RtlInitializeCriticalSection(device_va + kDeviceOffsetCriticalSection1);
-    if (const u32 global = LoadGuestU32(kVdGlobalDeviceImportSlot))
-      *GuestPtr<be_u32>(global) = device_va;
-    if (!(behavior_flags & 0x100) && !(behavior_flags & 0x3F000000))
-      behavior_flags |= 0xC000000;
-    WriteU32(bytes, d3d::kDeviceOffsetBehaviorFlags, behavior_flags);
-    WriteU32(bytes, kDeviceOffsetsMinusOne[0], 0xFFFFFFFFu);
-    WriteU32(bytes, kDeviceOffsetsMinusOne[1], 0xFFFFFFFFu);
-    const float frequency = float(KeQueryPerformanceFrequency());
-    d.SetF(kDeviceOffsetPerfFrequency, frequency);
-    d.SetF(kDeviceOffsetPerfFrequency + 4, frequency > 0.0f ? 1.0f / frequency : 0.0f);
-    if (present_parameters) {
-      ctx.r3.u64 = device_va;
-      ctx.r4.u64 = present_parameters;
-      __imp__sub_82683188(ctx, base);
-      if (!ctx.r3.u32) {
-        RGPU_ERROR("Direct3D_CreateDevice: InitializePresentationParameters failed");
-        ctx.r3.u64 = kE_OUTOFMEMORY;
-        return;
-      }
-    }
+  RtlInitializeCriticalSection(device_va + kDeviceOffsetCriticalSection0);
+  RtlInitializeCriticalSection(device_va + kDeviceOffsetCriticalSection1);
+  if (const u32 global = LoadGuestU32(kVdGlobalDeviceImportSlot))
+    *GuestPtr<be_u32>(global) = device_va;
+  ctx.r3.u64 = device_va;
+  __imp__sub_82B619A0(ctx, base);
+  WriteU32(bytes, kDeviceOffsetsMinusOne[0], 0xFFFFFFFFu);
+  WriteU32(bytes, kDeviceOffsetsMinusOne[1], 0xFFFFFFFFu);
+  if (present_parameters) {
     ctx.r3.u64 = device_va;
-    __imp__sub_826827B8(ctx, base);
-    native::RewindRing(d);
-    // From here the title device's fences complete on the render thread (KickFence).
-    bytes[kDeviceOffsetFlags2] &= u8(~kDeviceFlagImmediateFences);
-    Video::SetGuestDevice(device_va);
+    ctx.r4.u64 = present_parameters;
+    __imp__sub_82B65F08(ctx, base);
+    if (!ctx.r3.u32) {
+      RGPU_ERROR("Direct3D_CreateDevice: InitializePresentationParameters failed");
+      return 0;
+    }
   }
-  RGPU_INFO("Guest D3D device (type {}) created at {:#010x}", device_type, device_va);
-  ctx.r3.u64 = 0;  // S_OK
+  ctx.r3.u64 = device_va;
+  __imp__sub_82B65C30(ctx, base);
+  const float frequency = float(KeQueryPerformanceFrequency());
+  d.SetF(kDeviceOffsetPerfFrequency, frequency);
+  d.SetF(kDeviceOffsetPerfFrequency + 4, frequency > 0.0f ? 1.0f / frequency : 0.0f);
+  native::RewindRing(d);
+  // From here the title device's fences complete on the render thread (KickFence).
+  bytes[kDeviceOffsetFlags2] &= u8(~kDeviceFlagImmediateFences);
+  Video::SetGuestDevice(device_va);
+  RGPU_INFO("Guest D3D device created at {:#010x}", device_va);
+  return 1;
 }
 
 // SA2's ring segment allocator (sub_8254DA90 (CDevice*, DWORD Dwords): KickOffSegment, BeginRingBig and Swap call it
@@ -1403,19 +1395,41 @@ void Sa2SynchronizeToPresentationInterval_hook(u32 device_va, u32 /*immediate*/)
 
 }  // namespace
 
-BANJO_RENUT_HOOK_RAW(sub_8265E2D8) {  // Direct3D_CreateDevice [0x8264DF28]
-  Sa2CreateDevice(ctx, base);
+BANJO_RENUT_HOOK_RAW(sub_82B66420) {  // alice-nx: Direct3D's hardware path (Direct3D_CreateDevice [0x8264DF28])
+  ctx.r3.u64 = AliceInitializeDevice(ctx, base);
 }
-BANJO_RENUT_HOOK(sub_82673600, D3DDevice_InsertCallback_hook);  // D3DDevice_InsertCallback [0x821FB688]
-BANJO_RENUT_HOOK(sub_82663DB8, Sa2SynchronizeToPresentationInterval_hook);  // D3D_SynchronizeToPresentationInterval [0x8228A748]
-BANJO_RENUT_HOOK(sub_82673110, KickOff_hook);  // D3D_CDevice_KickOff [0x82210AB0]
-BANJO_RENUT_HOOK(sub_82672D88, KickOffSegment_hook);  // D3D_CDevice_KickOffSegment [0x822106C8]
-BANJO_RENUT_HOOK(sub_826733B8, BeginRingBig_hook);  // D3D_CDevice_BeginRingBig [0x821F7C18]
-BANJO_RENUT_HOOK(sub_826716D8, RingBufferDeviceAllocate_hook);  // D3D_RingBufferDeviceAllocate [0x8222D3E0]
-BANJO_RENUT_HOOK(sub_82671DE8, AllocateInlineData_hook);  // D3D_CDevice_AllocateInlineData [0x8222D240]
-BANJO_RENUT_HOOK(sub_82671ED0, Sa2NewSegment_hook);  // SA2's ring segment allocator
+// alice-nx: no D3DDevice_InsertCallback in Alice (docs/d3d-census.md): its hook is dropped.
+
+// alice-nx (2026-11-02): HRESULT IDirect3DQuery9::GetData(D3DQuery*, void *pData) [Alice's sub_82B4D048; LTCG left
+// two arguments]. The occlusion (type 9) and screen extent (type 10) results are what the GPU writes into the query's
+// memory, and nothing writes it here: UE3's rendering thread (sub_82A55528) polls it until S_OK, so it spun forever.
+// Once issued (+20 bit 0x40, the original's test), an occlusion query reports every sample of a 1280x720 frame as
+// passed (UE3 draws whatever it tested), and a screen extent query reports zeros, the original's own answer on a device
+// whose fences complete as they are written. Other types (the event query: its fence) are the original's.
+BANJO_RENUT_HOOK_RAW(sub_82B4D048) {
+  const u32 query = ctx.r3.u32, out = ctx.r4.u32;
+  const auto *q = query ? GuestPtr<const u8>(query) : nullptr;
+  const bool issued = q && (q[20] & 0x40);
+  const u32 type = q ? LoadGuestU32(query + 4) : 0;
+  if (issued && (type == 9 || type == 10)) {
+    if (out && type == 9)
+      *GuestPtr<be_u32>(out) = 1280u * 720u;
+    else if (out)
+      std::memset(GuestPtr<u8>(out), 0, 24);
+    ctx.r3.u64 = 0;  // S_OK
+    return;
+  }
+  __imp__sub_82B4D048(ctx, base);
+}
+BANJO_RENUT_HOOK(sub_82B58B18, Sa2SynchronizeToPresentationInterval_hook);  // D3D_SynchronizeToPresentationInterval [0x8228A748]
+BANJO_RENUT_HOOK(sub_82B57E60, KickOff_hook);  // D3D_CDevice_KickOff [0x82210AB0]
+BANJO_RENUT_HOOK(sub_82B57B80, KickOffSegment_hook);  // D3D_CDevice_KickOffSegment [0x822106C8]
+BANJO_RENUT_HOOK(sub_82B56A98, BeginRingBig_hook);  // D3D_CDevice_BeginRingBig [0x821F7C18]
+BANJO_RENUT_HOOK(sub_82B56E58, RingBufferDeviceAllocate_hook);  // D3D_RingBufferDeviceAllocate [0x8222D3E0]
+BANJO_RENUT_HOOK(sub_82B57088, AllocateInlineData_hook);  // D3D_CDevice_AllocateInlineData [0x8222D240]
+BANJO_RENUT_HOOK(sub_82B57228, Sa2NewSegment_hook);  // SA2's ring segment allocator
 // alice: SetRingBufferParameters is not linked in this game (docs/d3d-census.md); its hook is dropped.
-BANJO_RENUT_HOOK(sub_82664278, D3DDevice_Swap_hook);  // D3DDevice_Swap [0x82287590]
-BANJO_RENUT_HOOK(sub_82671A68, BlockOnFence_hook);  // D3D_CDevice_BlockOnFence [0x8228F558]
-BANJO_RENUT_HOOK(sub_8265D768, CBlocker_Check_hook);  // D3D_CBlocker_Check [0x8264DCD0]
-BANJO_RENUT_HOOK(sub_826719E8, IsFencePending_hook);  // D3DDevice_IsFencePending [0x8228F650]
+BANJO_RENUT_HOOK(sub_82B59050, D3DDevice_Swap_hook);  // D3DDevice_Swap [0x82287590]
+BANJO_RENUT_HOOK(sub_82B57F60, BlockOnFence_hook);  // D3D_CDevice_BlockOnFence [0x8228F558]
+BANJO_RENUT_HOOK(sub_82B5BE88, CBlocker_Check_hook);  // D3D_CBlocker_Check [0x8264DCD0]
+BANJO_RENUT_HOOK(sub_82B583C0, IsFencePending_hook);  // D3DDevice_IsFencePending [0x8228F650]

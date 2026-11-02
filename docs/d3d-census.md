@@ -150,3 +150,28 @@ These four hooks need Alice-specific versions. The work is to follow Renut's int
 replace), read each function's real arguments from its callers, and test on PC against the emulated GPU frame by
 frame (`compare_video.py`), as the porting prompt's stage 4 asks. The other hooks map one to one
 (`tools/renut/retarget_alice.py`).
+
+## Renut's hooks for Alice (2026-11-02, second pass)
+
+Every value below was read from Alice's code with `tools/ppcdis.py`, `tools/find_disp.py` (a field's readers and
+writers) and `tools/find_calls.py` (a function's callers). This pass **corrects** three entries above.
+
+| Hook | Alice | Evidence |
+|---|---|---|
+| CreateDevice | hook of the hardware path **`82B66420`** (device, pp) | `82B5C288` has no type-2 path: it allocates and clears the device and calls `82B66420`, which does critical sections (+15220, +15248), VdGlobalDevice (slot 0x8200095C), fence words (+11024 96 bytes, +11028 32 bytes), the engines, `82B619A0` (XenonGpu_Initialize: writes +0x28BC 0x20002000, +0x29D4, +0x2A14), −1 at +21840/+21844, InitializePresentationParameters `82B65F08`, InitializeApiState `82B65C30`, the timer frequency at +21868, and 41 × −1 at +23664. The hook keeps the non-GPU part. |
+| BeginVertices | **`82B55368`** (device, type, count, stride) → the vertex pointer | **Corrects the census:** not DrawVerticesUP. It reserves inline data (`82B57088`), returns it (`mr r3,r28`; 0 on failure) and stores +13716 (VerticesRingEnd), +13720, +13728. |
+| BeginIndexedVertices | **`82B55828`** (device, type, base, NumVertices, IndexCount, format r8, stride r9, ppIndexData r10, ppVertexData at caller +84) → HRESULT | Bit 4 of r8 picks 32-bit indices; `stw r26,0(r17)` with r17 = r10; `stw r28,0(r9)` with r9 = `lwz 308(r1)` (frame 224: the caller's +84). New hook; deferred draws now carry indices. |
+| DrawVerticesUP | **none** | Only BeginVertices, BeginIndexedVertices and SetStreamSource (`82B51DD0`, and the game's inline copy `82A5CE78`) store stream 0's stride byte (+12776). Hook dropped. |
+| DrawIndexedVertices | `82B56180` (device, type, **StartIndex r5, IndexCount r6**) | **LTCG dropped BaseVertexIndex:** r5 is scaled by the index size, r6 is compared with 65535, and VGT_INDX_OFFSET (0x2102) is written from `li r17,0`. DrawVertices `82B55D68` keeps (device, type, StartVertex, VertexCount): it writes 0x2102 from r5. |
+| Resolve | hook of the worker **`82B5DF10`** (device, flags, rect, dest texture, point, DestLevel r8, color r9, ClearZ f1, ClearStencil at caller +84) | 10 callers (9 game, Direct3D's Present `82B6761C`). r8: non-zero takes a mip level's offset; every caller passes 0. r9: `lvx` from it, a default when null. 0x200 flag calls `82B5D9B0` with `lwz r5,468(r1)` (frame 384). No slice, no parameters. |
+| ClearF | `82B5D7E8` (device, flags, rect, color, f1 Z) | **No Stencil:** r8 and r7 are overwritten before any read; the worker `82B5D170` takes (device, flags, rect, color, f1). |
+| Vertex declaration | hook of the in-place init **`82B551A0`** (elements, object) | 3 callers, all UE3 (`82A4ED00`, `82A540F0`, `82A5C5EC`). |
+| InsertCallback | **none found** | Hook dropped. If UE3 inserts callbacks inline, their packets go to the ring sink and never run: watch for waits that never end. |
+| Shader objects | as SA2's | XGRegisterVertexShader `82B54ED8` stores the physical pointer at +32 and reads the container at +872 (0x368); XGRegisterPixelShader `82B54CE0` stores it at +24. |
+
+Device fields corrected or added: VertexDeclaration **12120** (not 12112: InitializeApiState stores the default
+declaration's address, device + 12440, there; 4 users, none of 12112), the viewport floats at **12896** (SetViewport
+`82B4F770`; SA2's 13024, N&B's 0x3168), ScissorRect 12924 (`82B4F2E0`), TilingExtent 13428 (ClearF), the gamma ramp
+15280 (Swap), the presentation interval 13872 (InitializeApiState saves and restores it), TitleMinusOne 23664. Below
+11072 (the register image, the fetch constants at +1152 and +1776, the fence words, the flags) the layout is SA2's.
+The snapshot (`kDeviceSnapshotSize`) ends at 12960; the private range the deltas skip ends at 12096.

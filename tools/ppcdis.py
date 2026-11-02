@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Prints a PowerPC listing of the decrypted image (out/default_image.bin) around addresses, with sa2-nx's ppc_mini.
 
-  tools/dis.py 0x82B80788 [more addresses] [--before N] [--after N]
+  tools/ppcdis.py 0x82B80788 [more addresses] [--before N] [--after N]
 """
 import argparse
 import os

@@ -4142,7 +4142,7 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
   const ChainHint &chain = g_chain_hint;
   Targets targets;
   bool targets_reused = false;
-  if (targets_reuse_on && chain.seq && chain.seq == g_targets_reuse.seq + 1 && !ChainChanged(chain, 12816, 12835) &&
+  if (targets_reuse_on && chain.seq && chain.seq == g_targets_reuse.seq + 1 && !ChainChanged(chain, d3d::kDeviceOffsetRenderTargets, d3d::kDeviceOffsetDepthStencil + 3) &&
       g_targets_reuse.epoch == SurfaceEpochLocked()) {
     targets_reused = true;
     for (u32 i = 0; targets_reused && i <= d3d::kMaxRenderTargets; ++i) {
@@ -4266,7 +4266,7 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
   };
   static TexturesReuse treuse;
   bool textures_reused = targets_reuse_on && chain.seq && chain.seq == treuse.seq + 1 && treuse.mask == texture_mask &&
-                         !ChainChanged(chain, 1152, 1775) && !ChainChanged(chain, 12920, 13023) &&
+                         !ChainChanged(chain, 1152, 1775) && !ChainChanged(chain, d3d::kDeviceOffsetTextures, d3d::kDeviceOffsetTextures + 26 * 4 - 1) &&
                          treuse.frame == TextureFrameLocked() && treuse.epoch == g_texture_epoch &&
                          treuse.depth_epoch == g_depth_epoch && treuse.depth == targets.depth;
   for (u32 r = 0; textures_reused && r < d3d::kTextureFetchSlots; ++r) {
@@ -5341,10 +5341,11 @@ void ClearStateLocked(const u8 *device_state, u32 flags, const ClearRect *rect,
   if (!GatherTargets(device, targets))
     return;
 
-  // D3D clamps clears to the viewport (CDevice viewport floats at 0x3168).
+  // D3D clamps clears to the viewport (CDevice viewport floats at 0x3168: N&B's; alice-nx: Alice's at 12896, which
+  // its SetViewport sub_82B4F770 writes).
   ClearRect r = rect ? *rect : ClearRect{0, 0, int32_t(targets.width), int32_t(targets.height)};
-  const float vx = device.F32(0x3168), vy = device.F32(0x316C);
-  const float vw = device.F32(0x3170), vh = device.F32(0x3174);
+  const float vx = device.F32(12896), vy = device.F32(12900);
+  const float vw = device.F32(12904), vh = device.F32(12908);
   if (vw > 0.0f && vh > 0.0f) {
     int32_t vx2 = int32_t(vx + vw), vy2 = int32_t(vy + vh);
     // A target grown for tiling: D3D bounds the viewport by the tile-sized

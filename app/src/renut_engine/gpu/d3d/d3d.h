@@ -15,6 +15,11 @@
  * private offset below was read from SA2's own code (named in the comment);
  * N&B's value follows it. Sonic & All-Stars Racing Transformed (21119) has the
  * same layout.
+ *
+ * alice-nx (2026-11-02): Alice: Madness Returns' XDK (Direct3D 2.0.20353, LTCG). Below 11072 the device is SA2's;
+ * the vertex declaration is 120 earlier than SA2's (12120), and from the bound objects on (12684) every field Renut
+ * reads is 128 earlier. Each value below was read from Alice's code (docs/d3d-census.md; tools/find_disp.py lists a
+ * field's readers and writers); SA2's follows it in the comment.
  */
 #pragma once
 
@@ -281,20 +286,20 @@ static_assert(offsetof(Device, m_ZFilter) == 0x2A8A);
 // sa2-nx: SA2's sub_8255C808 and sub_8254FC10 (N&B 10888, 10892, 23980).
 constexpr u32 kDeviceOffsetCreationThreadId = 11016;  // GetCurrentThreadId()
 constexpr u32 kDeviceOffsetIsTitleProcess = 11020;    // KeGetCurrentProcessType() == 2
-constexpr u32 kDeviceOffsetBehaviorFlags = 24392;     // Direct3D_CreateDevice arg 4
+constexpr u32 kDeviceOffsetBehaviorFlags = 24264;     // Direct3D_CreateDevice arg 4 (alice: the constant 0x0C000001 sub_82B5C288 stores; SA2 24392)
 
 // Bound objects the Set* calls store in the CDevice-private area (guest VAs).
 // sa2-nx: SA2's "is the resource bound" test (sub_825498C8) reads every one of
 // these but the strides (sub_82565758, BeginVertices). N&B's in brackets.
-constexpr u32 kDeviceOffsetVertexDeclaration = 12240;  // SetVertexDeclaration [0x2E2C]
-constexpr u32 kDeviceOffsetIndexBuffer = 12812;        // SetIndices [0x3094]
-constexpr u32 kDeviceOffsetRenderTargets = 12816;      // SetRenderTarget, [4] [0x3098]
-constexpr u32 kDeviceOffsetDepthStencil = 12832;       // SetDepthStencilSurface [0x30A8]
-constexpr u32 kDeviceOffsetStreamSources = 12836;      // SetStreamSource, [16] [0x30AC]
-constexpr u32 kDeviceOffsetStreamStrides = 12904;      // SetStreamSource, u8[16], stride / 4 [0x30F0]
-constexpr u32 kDeviceOffsetTextures = 12920;           // SetTexture, [kTextureFetchSlots] [0x3100]
-constexpr u32 kDeviceOffsetPixelShader = 13068;        // SetPixelShader [0x3194]
-constexpr u32 kDeviceOffsetVertexShader = 13072;       // SetVertexShader [0x3198]
+constexpr u32 kDeviceOffsetVertexDeclaration = 12120;  // SetVertexDeclaration [0x2E2C] (alice: InitializeApiState sub_82B65C30 points it at its default; SA2 12240)
+constexpr u32 kDeviceOffsetIndexBuffer = 12684;        // SetIndices [0x3094] (alice: D3DResource_IsSet sub_82B4C048; SA2 12812)
+constexpr u32 kDeviceOffsetRenderTargets = 12688;      // SetRenderTarget, [4] [0x3098] (alice; SA2 12816)
+constexpr u32 kDeviceOffsetDepthStencil = 12704;       // SetDepthStencilSurface [0x30A8] (alice; SA2 12832)
+constexpr u32 kDeviceOffsetStreamSources = 12708;      // SetStreamSource, [16] [0x30AC] (alice; SA2 12836)
+constexpr u32 kDeviceOffsetStreamStrides = 12776;      // SetStreamSource, u8[16], stride / 4 [0x30F0] (alice: Begin*Vertices; SA2 12904)
+constexpr u32 kDeviceOffsetTextures = 12792;           // SetTexture, [kTextureFetchSlots] [0x3100] (alice; SA2 12920)
+constexpr u32 kDeviceOffsetPixelShader = 12940;        // SetPixelShader [0x3194] (alice; SA2 13068)
+constexpr u32 kDeviceOffsetVertexShader = 12944;       // SetVertexShader [0x3198] (alice; SA2 13072)
 // In m_TessellatorPacket, which holds registers 0x2280 on: VGT_HOS_CNTL
 // (tessellation mode in bits 0-1: 0 discrete, 1 continuous, 2 adaptive) and
 // the float VGT_HOS_MAX_TESS_LEVEL / VGT_HOS_MIN_TESS_LEVEL.
@@ -307,26 +312,26 @@ constexpr u32 kDeviceOffsetMinTessellationLevel = 0x2980;
 // predicated tiling (Z and render).
 // sa2-nx: 13084 by the +376 of the fields around it (N&B 0x31A4); SA2 never
 // tiles, and the renderer reads it only while tiling (PredicatedTile).
-constexpr u32 kDeviceOffsetPredication = 13084;
+constexpr u32 kDeviceOffsetPredication = 12956;  // alice: 15 readers in Direct3D (SA2 13084)
 // D3DCommandBuffer being recorded (BeginCommandBuffer sets, End clears).
 // sa2-nx: SA2's AllocateInlineData (sub_8254D9A8) reads it (N&B 13516).
-constexpr u32 kDeviceOffsetCommandBuffer = 13920;
+constexpr u32 kDeviceOffsetCommandBuffer = 13792;  // alice (SA2 13920)
 // The leading part of the device the draw, clear and resolve paths read (up
 // to and including kDeviceOffsetPredication); a copy of it stands in for the
 // device when a recorded command buffer is replayed.
-constexpr u32 kDeviceSnapshotSize = 13088;  // sa2-nx (N&B 0x31A8)
+constexpr u32 kDeviceSnapshotSize = 12960;  // alice: kDeviceOffsetPredication + 4 (SA2 13088; N&B 0x31A8)
 static_assert(kDeviceOffsetVertexShader + 4 <= kDeviceSnapshotSize);
 static_assert(kDeviceOffsetPredication + 4 <= kDeviceSnapshotSize);
 // m_pRing the inline end of BeginVertices / BeginIndexedVertices restores.
 // sa2-nx: SA2's BeginVertices (sub_82565758) stores it, and the game's 11
 // inline ends load it (N&B 0x3484).
-constexpr u32 kDeviceOffsetVerticesRingEnd = 13844;
+constexpr u32 kDeviceOffsetVerticesRingEnd = 13716;  // alice: Begin(Indexed)Vertices sub_82B55368 / sub_82B55828 (SA2 13844)
 // Swap bookkeeping (D3DDevice_Swap 0x82287590; SA2's sub_82558E98, which
 // also sets the pending flag in SynchronizeToPresentationInterval sub_825589D8).
-constexpr u32 kDeviceOffsetSwapCount = 16968;        // [0x40B0]
+constexpr u32 kDeviceOffsetSwapCount = 16840;        // [0x40B0] (alice: Swap sub_82B59050; SA2 16968)
 constexpr u32 kDeviceOffsetFenceTag = 11036;         // current fence tag [0x2A9C]
 constexpr u32 kDeviceOffsetSwapFenceTag = 11056;     // fence tag at the last Swap [0x2AB0]
-constexpr u32 kDeviceOffsetPresentFenceTag = 15344;  // fence tag of the last presented frame [0x3A5C]
+constexpr u32 kDeviceOffsetPresentFenceTag = 15216;  // fence tag of the last presented frame [0x3A5C] (alice; SA2 15344)
 constexpr u32 kDeviceOffsetSwapFlags = 11069;        // [0x2ABD]
 constexpr u8 kSwapFlagPending = 0x10;
 

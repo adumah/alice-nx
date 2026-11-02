@@ -101,6 +101,7 @@ inline i64 TruncateToI64(double value) {
 // the private fields are SA2's, N&B's value in brackets. Those marked "+N" are
 // placed by the shift of the fields around them and not read from SA2's code:
 // only the functions sa2-nx does not hook use them (tiling, command buffers).
+// alice-nx (2026-11-02): Alice's offsets (d3d.h); SA2's at the end of each comment.
 namespace off {
 constexpr u32 Ring = 0x30;                 // m_pRing
 constexpr u32 RingLimit = 0x34;            // m_pRingLimit
@@ -137,26 +138,26 @@ constexpr u32 Flags = 11068;               // bytes 11068-11071, see below [0x2A
 constexpr u32 Flags1 = 11069;
 constexpr u32 Flags2 = 11070;
 constexpr u32 Flags3 = 11071;
-constexpr u32 ScissorRect = 13052;         // SetScissorRect's RECT [0x3184] (SA2's Present)
-constexpr u32 IndexBuffer = 12812;         // [0x3094]
-constexpr u32 RenderTargets = 12816;       // [4] [0x3098]
-constexpr u32 DepthStencil = 12832;        // [0x30A8]
-constexpr u32 StreamSources = 12836;       // [16] [0x30AC]
-constexpr u32 StreamStrides = 12904;       // u8[16], stride / 4 [0x30F0]
-constexpr u32 Textures = 12920;            // [26] [0x3100]
-constexpr u32 Predication = 13084;         // tile predication of the next draws, ~0 none [0x31A4] +376
-constexpr u32 RunPredicationState = 13088; // [0x31A8] +376
-constexpr u32 PredicationSet = 13092;      // 1 while SetPredication's mask is non-zero [0x31AC] +376
-constexpr u32 TilingSurfaces = 13104;      // the 4 targets and depth BeginTiling bound [0x31B8] +376
-constexpr u32 TileCount = 13124;           // [0x31CC] +376
-constexpr u32 TileRects = 13128;           // D3DRECT[TileCount] [0x31D0] +376
-constexpr u32 TileOrigins = 13368;         // per tile, x & ~31, y & ~31 [0x32C0] +376
-constexpr u32 TilingExtent = 13556;        // widest and tallest tile edge [0x337C] +376
-constexpr u32 CommandBuffer = 13920;       // the D3DCommandBuffer being recorded [0x34CC]
-constexpr u32 SideBuffer = 17136;          // [0x4158] (sub_8255C808)
-constexpr u32 AutoDepthStencil = 15228;    // InitializePresentationParameters' surfaces [0x39E8]
-constexpr u32 AutoFrontBuffer = 15232;     // [0x39EC] (SA2's Present)
-constexpr u32 AutoBackBuffer = 15236;      // [0x39F0] (SA2's Present)
+constexpr u32 ScissorRect = 12924;         // SetScissorRect's RECT [0x3184] (SA2's Present) (alice: SetScissorRect sub_82B4F2E0; SA2 13052)
+constexpr u32 IndexBuffer = 12684;         // [0x3094] (alice; SA2 12812)
+constexpr u32 RenderTargets = 12688;       // [4] [0x3098] (alice; SA2 12816)
+constexpr u32 DepthStencil = 12704;        // [0x30A8] (alice; SA2 12832)
+constexpr u32 StreamSources = 12708;       // [16] [0x30AC] (alice; SA2 12836)
+constexpr u32 StreamStrides = 12776;       // u8[16], stride / 4 [0x30F0] (alice; SA2 12904)
+constexpr u32 Textures = 12792;            // [26] [0x3100] (alice; SA2 12920)
+constexpr u32 Predication = 12956;         // tile predication of the next draws, ~0 none [0x31A4] +376 (alice; SA2 13084)
+constexpr u32 RunPredicationState = 12960; // [0x31A8] +376 (alice; SA2 13088)
+constexpr u32 PredicationSet = 12964;      // 1 while SetPredication's mask is non-zero [0x31AC] +376 (alice; SA2 13092)
+constexpr u32 TilingSurfaces = 12976;      // the 4 targets and depth BeginTiling bound [0x31B8] +376 (alice; SA2 13104)
+constexpr u32 TileCount = 12996;           // [0x31CC] +376 (alice; SA2 13124)
+constexpr u32 TileRects = 13000;           // D3DRECT[TileCount] [0x31D0] +376 (alice; SA2 13128)
+constexpr u32 TileOrigins = 13240;         // per tile, x & ~31, y & ~31 [0x32C0] +376 (alice; SA2 13368)
+constexpr u32 TilingExtent = 13428;        // widest and tallest tile edge [0x337C] +376 (alice: ClearF sub_82B5D7E8 reads it; SA2 13556)
+constexpr u32 CommandBuffer = 13792;       // the D3DCommandBuffer being recorded [0x34CC] (alice; SA2 13920)
+constexpr u32 SideBuffer = 17008;          // [0x4158] (sub_8255C808) (alice: sub_82B5C288; SA2 17136)
+constexpr u32 AutoDepthStencil = 15100;    // InitializePresentationParameters' surfaces [0x39E8] (alice: sub_82B5C460 compares the bound depth with it; SA2 15228)
+constexpr u32 AutoFrontBuffer = 15104;     // [0x39EC] (SA2's Present) (alice; SA2 15232)
+constexpr u32 AutoBackBuffer = 15108;      // [0x39F0] (SA2's Present) (alice: sub_82B5C460; SA2 15236)
 }  // namespace off
 
 // Flags (11068; N&B 0x2ABC) bits: 0x01 the draws that follow run in each tile's pass,

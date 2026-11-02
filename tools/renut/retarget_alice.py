@@ -17,8 +17,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 ENGINE = os.path.join(ROOT, 'app', 'src', 'renut_engine')
 
 FUNCTIONS = {  # Monster High -> Alice (None: not identified yet)
-    '8265E2D8': '82B5C288',  # Direct3D_CreateDevice: under LTCG (present parameters) only; Renut's hook reads the
-                             # XDK's six arguments, so it needs rewriting before --apply (docs/d3d-census.md)
+    # Direct3D_CreateDevice 8265E2D8: rewritten by hand, as a hook of Alice's hardware path sub_82B66420 (device.cpp)
     '82673110': '82B57E60',  # CDevice::KickOff
     '82672D88': '82B57B80',  # CDevice::KickOffSegment
     '826733B8': '82B56A98',  # CDevice::BeginRingBig
@@ -28,24 +27,23 @@ FUNCTIONS = {  # Monster High -> Alice (None: not identified yet)
     '82671A68': '82B57F60',  # CDevice::BlockOnFence
     '8265D768': '82B5BE88',  # CBlocker::Check (probable: the 748,000-calls-a-frame poll BlockOnFence calls)
     '826719E8': '82B583C0',  # D3DDevice_IsFencePending
-    '82673600': None,        # D3DDevice_InsertCallback
+    # D3DDevice_InsertCallback 82673600: not in Alice; its hook is dropped (device.cpp)
     '82663DB8': '82B58B18',  # D3D::SynchronizeToPresentationInterval
     '82664278': '82B59050',  # D3DDevice_Swap
     '826747A0': '82B55D68',  # D3DDevice_DrawVertices
     '82674BB8': '82B56180',  # D3DDevice_DrawIndexedVertices
-    '82674178': None,        # D3DDevice_DrawVerticesUP is 82B55368, but LTCG changed its argument order (stride in
-                             # r6, not r7): the hook needs rewriting first (docs/d3d-census.md)
-    '82673CB8': None,        # D3DDevice_BeginVertices
+    # D3DDevice_DrawVerticesUP 82674178: not in Alice; its hook is dropped (draw.cpp)
+    '82674178': '82674178',  # (only banjo_shared_hooks.h's declaration, which nothing defines or calls)
+    '82673CB8': '82B55368',  # D3DDevice_BeginVertices (device, type, count, stride): returns the vertex pointer,
+                             # stores VerticesRingEnd (+13716). The census first took it for DrawVerticesUP.
     '826629E0': '82B5D7E8',  # D3DDevice_ClearF
-    '82670E88': None,        # D3DDevice_Resolve: inlined under LTCG; the copy worker is 82B5DF10, whose arguments
-                             # differ from the wrapper's, so the hook needs rewriting, not just a new address
+    # D3DDevice_Resolve 82670E88: no wrapper in Alice; rewritten by hand as a hook of the worker sub_82B5DF10
     '8266AC10': '82B54ED8',  # XGRegisterVertexShader
     '82667AE0': '82B54CE0',  # XGRegisterPixelShader
-    '82668088': None,        # D3DDevice_CreateVertexDeclaration: under LTCG an in-place init, 82B551A0 (elements,
-                             # object), so the hook needs rewriting first (docs/d3d-census.md)
+    # D3DDevice_CreateVertexDeclaration 82668088: rewritten by hand, as a hook of the in-place init sub_82B551A0
     '8265C778': '82B4B730',  # D3DResource_Destroy (what Release 82B4BF38 calls at count 0)
-    '82683188': '82B65F08',  # D3D::InitializePresentationParameters (device, pp)
-    '826827B8': '82B65C30',  # D3D::InitializeApiState (device)
+    # InitializePresentationParameters 82683188 / InitializeApiState 826827B8: called by the hand-written device hook
+    # at Alice's addresses (82B65F08, 82B65C30)
 }
 CONSTANTS = {
     'kVdGlobalDeviceImportSlot = 0x82000794': 'kVdGlobalDeviceImportSlot = 0x8200095C',
@@ -54,7 +52,7 @@ CONSTANTS = {
 # Device fields: Monster High -> Alice. Up to +11069 unchanged; from about +12100, Monster High's - 128.
 OFFSETS = {
     'kDeviceOffsetSwapFenceTag': (11056, 11056),
-    'kDeviceOffsetVertexDeclaration': (12240, 12112),
+    'kDeviceOffsetVertexDeclaration': (12240, 12120),  # InitializeApiState's default; not the -128 rule
     'kDeviceOffsetIndexBuffer': (12812, 12684),
     'kDeviceOffsetRenderTargets': (12816, 12688),
     'kDeviceOffsetDepthStencil': (12832, 12704),
@@ -73,7 +71,7 @@ OFFSETS = {
     'kDeviceOffsetSwapCount': (16968, 16840),
     'kDeviceOffsetSideBuffer': (17136, 17008),
     'kDeviceOffsetPerfFrequency': (21996, 21868),
-    'kDeviceOffsetTitleMinusOne': (23380, 23252),
+    'kDeviceOffsetTitleMinusOne': (23380, 23664),  # Alice's hardware path; not the -128 rule
     'kDeviceOffsetBehaviorFlags': (24392, 24264),
 }
 FILES = ['gpu/d3d/hooks/device.cpp', 'gpu/d3d/hooks/draw.cpp', 'gpu/d3d/hooks/shader.cpp', 'gpu/d3d/hooks/resource.cpp',

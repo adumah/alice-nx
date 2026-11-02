@@ -473,24 +473,27 @@ void RegisterGuestDeclaration(u32 declaration_va, const GuestVertexElement *elem
 }  // namespace
 
 // void XGRegisterVertexShader(D3DVertexShader*, void *pPhysicalPart) [sub_8255E658; N&B 0x8264E7B8]
-BANJO_RENUT_HOOK_RAW(sub_8266AC10) {
+BANJO_RENUT_HOOK_RAW(sub_82B54ED8) {
   const u32 shader = ctx.r3.u32, physical = ctx.r4.u32;
-  __imp__sub_8266AC10(ctx, base);
+  __imp__sub_82B54ED8(ctx, base);
   RegisterGuestShader(shader, physical, false);
 }
 
 // void XGRegisterPixelShader(D3DPixelShader*, void *pPhysicalPart) [sub_8255DBF8; N&B 0x8264E670]
-BANJO_RENUT_HOOK_RAW(sub_82667AE0) {
+BANJO_RENUT_HOOK_RAW(sub_82B54CE0) {
   const u32 shader = ctx.r3.u32, physical = ctx.r4.u32;
-  __imp__sub_82667AE0(ctx, base);
+  __imp__sub_82B54CE0(ctx, base);
   RegisterGuestShader(shader, physical, true);
 }
 
 // D3DVertexDeclaration *D3DDevice_CreateVertexDeclaration(const D3DVERTEXELEMENT9*) [sub_8255E198; N&B 0x8264EA90]
-BANJO_RENUT_HOOK_RAW(sub_82668088) {
+// alice-nx (2026-11-02): under LTCG Alice's callers (UE3's sub_82A4EC38, sub_82A54018, sub_82A5C540) allocate the
+// object and call the in-place init sub_82B551A0 (const D3DVERTEXELEMENT9 *pElements, D3DVertexDeclaration*): it walks
+// the elements to stream 0xFF and fills the object (docs/d3d-census.md). So that is the hook, with the object from r4.
+BANJO_RENUT_HOOK_RAW(sub_82B551A0) {
   const u32 elements_va = ctx.r3.u32;
-  __imp__sub_82668088(ctx, base);
-  const u32 declaration = ctx.r3.u32;
-  if (const auto *elements = declaration ? GuestPtr<const GuestVertexElement>(elements_va) : nullptr)
+  const u32 declaration = ctx.r4.u32;
+  __imp__sub_82B551A0(ctx, base);
+  if (const auto *elements = declaration && elements_va ? GuestPtr<const GuestVertexElement>(elements_va) : nullptr)
     RegisterGuestDeclaration(declaration, elements);
 }
