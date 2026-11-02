@@ -1,98 +1,68 @@
-# Direct3D census (for Renut's deko3d renderer)
+# Direct3D census (for the native renderer)
 
-The Switch build follows sa2-nx's `docs/deko3d-renderer-guide.md`: Renut's renderer hooks about twenty of the
-game's XDK Direct3D functions and reads the device's state at fixed offsets. This file records which function is
-which in Monster High's `Default.xex`, and why, as the guide asks ("name the source of every one").
+The Switch build needs a native renderer, so the game's XDK Direct3D functions have to be hooked, and the device's
+state read at known offsets. This file records which function is which in Alice: Madness Returns' `Default.xex`, and
+why. As sa2-nx's guide asks, it names the source of every one. Monster High's values (mhnwis-nx, XDK 2.0.21256) are
+given for comparison.
 
-Tools: `tools/d3d/fnindex.py` (listings and call graph from the generated code), `tools/d3d/census_build.py` and
-`tools/d3d/census_report.py` (a diagnostic build that counts every call in 0x8264E000-0x82698000; first run
-2026-10-20: boot, title, Load Game, gameplay in the courtyard; 1,545 frames in the 140-168 s window).
+Tools:
+- `tools/d3d/fnindex.py build|show|callers|grep`: listings and the call graph from the generated code.
+- `tools/d3d/fingerprint.py`: functions using a set of displacements.
+- `tools/d3d/census_build.py` / `census_report.py`: a diagnostic build counting every call in a range.
 
-## The device layout is SA2's
+Static analysis done 2026-11-02. The runtime census is still to come.
 
-The game links XDK 2.0.21256 (D3D9, XGRAPHC); SA2 links 2.0.21076. Every offset checked is SA2's:
+## The library
 
-| What | SA2 (sa2-nx `gpu/d3d/d3d.h`, `d3d_native.h`) | Monster High | Evidence |
+Alice links XDK 2.0.20353 with **D3D9LTCG**. The Direct3D library is link-time optimised together with the game, so
+some XDK functions are inlined or take different arguments than in SA2 or Monster High. For example, game code calls
+the resolve worker directly. The library's code sits at 0x82B40000-0x82B80000, and the game's own D3D layer (Unreal's
+Xenon renderer) sits right below it at 0x82A4xxxx-0x82A5xxxx.
+
+## The device layout differs from Monster High's
+
+The device is 0x5F80 bytes, against Monster High's 0x6080. Fields after about +11100 sit 128 bytes lower; the ring
+and fence fields are unchanged.
+
+| What | Monster High | Alice | Evidence |
 |---|---|---|---|
-| Device size, alignment | 0x6080, 0x80 | 0x6080, 0x80 | `sub_8265E2D8`: `li r3,24704`, `li r4,128`, then the allocator |
-| Behavior flags (CreateDevice arg 4) | +24392 | +24392 | `sub_8265E2D8`: `stw r30,24392(r31)` |
-| Ring, ring limit, ring guarantee | +0x30, +0x34, +0x38 | same | KickOff returns +48; BeginRingBig compares +48 + 4n with +52; the packet writers test +48 against +56 |
-| Fence completion pointer, fence tag | +11024, +11036 | same | IsFencePending, BlockOnFence: `tag - fence < tag - *completion` |
-| Flags bytes | +11068..+11071 | same | KickOff, KickOffSegment, the segment allocator |
-| In KickOff | +13600 | same | KickOff, BlockOnFence |
-| Command buffer being recorded | +13920 | same | AllocateInlineData, the segment allocator, KickOffSegment |
-| Side buffer | +17136 | same | the segment allocator |
-| End of inline vertices | +13844 | same | DrawVerticesUP sets the ring to it after the copy |
-| Swap count | +16968 | same | Swap: `lwz r11,16968(r31)` / `addi r11,r11,1` |
-| Index buffer, render targets [4], depth | +12812, +12816, +12832 | same | D3DResource_IsSet (`sub_8265BD98`), DrawIndexedVertices, ClearF |
-| Stream sources [16], textures [26] | +12836, +12920 | same | D3DResource_IsSet loops 16 / 26 slots from these |
-| Vertex declaration, vertex shader, pixel shader | +12240, +13072, +13068 | same | D3DResource_IsSet |
-| Vertex shader: container, physical part | +0x368, +0x20 | same | XGRegisterVertexShader (`sub_8266AC10`) |
-| Pixel shader: physical part | +0x18 | same | XGRegisterPixelShader (`sub_82667AE0`) |
+| Device allocation, clear | 0x6080 at 0x80 | 24576 allocated, aligned to 128 (`addi 131` / mask), 24448 (0x5F80) cleared | CreateDevice `sub_82B5C288` |
+| Global device pointer | | 0x8335016C | CreateDevice: `stw r31,364(r30)` with r30 = 0x83350000 |
+| Ring, ring limit, ring guarantee | +48, +52, +56 | same | BeginRingBig compares +48 + 4n with +52; KickOff returns +48; `sub_82B58340` tests +48 against +56 |
+| Fence completion pointer, fence tag | +11024, +11036 | same | KickOff, BlockOnFence `tag - fence < tag - *completion` |
+| Flag bytes | +11068..+11071 | same (+11068, +11069 read; +11072 in the draws) | KickOff, the segment allocator, the draws |
+| In KickOff | +13600 | **+13472** | KickOff, BlockOnFence, KickOffSegment's helper |
+| Command buffer being recorded | +13920 | **+13792** | AllocateInlineData, the segment allocator |
+| End of inline vertices | +13844 | **+13716** | the two UP draws |
+| Swap count | +16968 | **+16840** | Swap: `lwz r11,16840(r31)` / `addi 1` / `stw` |
+| Index buffer | +12812 | **+12684** | DrawIndexedVertices (`lwz r24,12684(r31)`), not DrawVertices |
+| Render targets [4], depth | +12816, +12832 | **+12688..+12700, +12704** | `sub_82B5D7E8` (22 callers) reads exactly these five |
+| Vertex shader: container, physical part | +0x368, +0x20 | same | XGRegisterVertexShader `sub_82B54ED8` |
 
-The offsets of SA2's table not listed here are not checked yet; with this many identical ones, the working assumption is
-that they are the same too, to be confirmed as the renderer reads them.
+Assumed, but not yet checked: stream sources, textures, the vertex declaration and the bound VS/PS are Monster High's
+offsets − 128 (+12708, +12792, +12112, +12944, +12940). Each one gets confirmed when the renderer reads it.
 
-## Functions identified (21 of 22; the 22nd is not linked)
+## Functions identified
 
-| Function | SA2 | Monster High | Evidence |
+| Function | Monster High | Alice | Evidence |
 |---|---|---|---|
-| Direct3D_CreateDevice | 8254FC10 | **8265E2D8** | Allocates the 0x6080-byte device, E_OUTOFMEMORY on failure, device type 2 takes the no-hardware path, arg 4 at +24392, hardware path `sub_82683408`. Census: once. |
-| CDevice::KickOff | 8254EBB8 | **82673110** | 121 callers; checks +13600 and the flags, waits on fence tag - 2 through BlockOnFence, returns the ring (+48). |
-| CDevice::KickOffSegment | 8254E830 | **82672D88** | 0x388 before KickOff, as in SA2; called by KickOff; writes the segment's indirect-buffer packet (+15332, +13920). |
-| CDevice::BeginRingBig | 8254EDF8 | **826733B8** | (device, count): ring + 4 * count > limit -> KickOff, then the segment allocator; returns the ring. |
-| Ring segment allocator | 8254DA90 | **82671ED0** | (device, dwords); its callers are exactly SA2's: KickOffSegment, BeginRingBig, Swap. Uses +17136 and +13920. |
-| RingBufferDeviceAllocate | 8254D4B8 | **826716D8** | AllocateInlineData calls it as (device, flags = 1, &size, alignment). |
-| CDevice::AllocateInlineData | 8254D9A8 | **82671DE8** | (device, dwords, alignment): bytes = 4 * dwords, from the command buffer's allocator or RingBufferDeviceAllocate; 0xE8 before the segment allocator, as in SA2. |
-| D3DDevice_SetRingBufferParameters | 8254EF40 | **not linked** | The ring set-up `sub_82673800` has three callers: CreateDevice's hardware path, a reset path and D3DDevice_Reset (`sub_8265DB70`, which passes the presentation parameters + 72). None takes D3DRING_BUFFER_PARAMETERS directly. |
-| CDevice::BlockOnFence | 8254D6E8 | **82671A68** | (device, fence, type, no_kick): pending test, KickOff when the fence is the current one, then polls CBlocker::Check. |
-| CBlocker::Check | 8254F400 | **8265D768** | The poll of BlockOnFence's loop (after the blocker's set-up `sub_8265D320`, before its end `sub_8265D350`). Census: ~315,000 calls a frame. |
-| D3DDevice_IsFencePending | 8254ECF8 | **826719E8** | One argument; the device from the title or system global (KeGetCurrentProcessType == 2), as VdGlobalDevice. |
-| D3DDevice_InsertCallback | 8254EEE8 | **82673600** | (device, type, callback, context): ring room, then the callback writer `sub_826726C0` (it stores into *(device + 11028) and writes an INTERRUPT packet); 22 instructions, SA2's size. |
-| D3D::SynchronizeToPresentationInterval | 825589D8 | **82663DB8** | The only function setting the swap-pending flag (0x10 of +11069); 0x4C0 before Swap, as in SA2. Census: once a frame. |
-| D3DDevice_Swap | 82558E98 | **82664278** | The only caller of VdSwap; increments +16968; copies the 24-byte scaler parameters. Census: once a frame. |
-| D3DDevice_DrawVertices | 82565C60 | **826747A0** | Exactly 0x418 before DrawIndexedVertices, as in SA2; flushes state through `sub_82685550`. |
-| D3DDevice_DrawIndexedVertices | 82566078 | **82674BB8** | Called from game code 388 times a frame; flushes the dirty state, reads the index buffer (+12812), writes the draw packets. |
-| D3DDevice_DrawVerticesUP | 82565C18 | **82674178** | (device, type, count, data, stride): BeginVertices, copy count * stride, ring = +13844. |
-| D3DDevice_BeginVertices | 82565758 | **82673CB8** | Called by DrawVerticesUP and the Swap path for the space the vertices go in. |
-| D3DDevice_ClearF | 82563978 | **826629E0** | (device, flags, count, rects, ...): with count 0 the size comes from render target 0 (+12816) or the depth surface (+12832). 6.7 calls a frame. |
-| D3DDevice_Resolve | 825656F8 | **82670E88** | A 19-instruction wrapper passing all eleven arguments (two from the stack) to the copy worker `sub_8266FD30`, which programs RB_COPY_CONTROL (0x2318) and the copy destination registers. Called by Present and game code. |
-| XGRegisterVertexShader | 8255E658 | **8266AC10** | (shader, physical): type 6, reference 1, physical part at +0x20, container at +0x368. Called by CreateVertexShader (`sub_8266AD08`). Census: 1,308 calls. |
-| XGRegisterPixelShader | 8255DBF8 | **82667AE0** | (shader, physical): type 7, reference 1, physical part at +0x18. Called by CreatePixelShader (`sub_8266AA98`). Census: 394 calls. |
-| D3DDevice_CreateVertexDeclaration | 8255E198 | **82668088** | (elements): counts 12-byte elements to Stream 0xFF, allocates 56 + 12n, fills it with `sub_82667F98` (resource type 5), returns it. |
-| D3DResource_Destroy | 8254A200 | **8265C778** | Called by D3DResource_Release (`sub_8265CA20`, the reference count at +4) when it reaches 0; waits through BlockOnFence. |
+| Direct3D_CreateDevice | 8265E2D8 | **82B5C288** | Allocates the device (above). E_OUTOFMEMORY (0x8007000E) on failure. Stores 0x0C000001 at +24264. Hardware path `sub_82B66420` (VdInitializeEngines, VdSetGraphicsInterruptCallback). One caller, `sub_82A54980`. |
+| CDevice::KickOff | 82673110 | **82B57E60** | 70 callers. Checks +13472 and flag 0x80 of +11068. Waits through BlockOnFence on tag − 2 (+11036). Sets 0x2 of +11069. Returns the ring (+48). |
+| CDevice::KickOffSegment | 82672D88 | **82B57B80** | Called by KickOff. Calls the segment allocator and the segment packet writer `sub_82B57D08` (+13472, +13632). |
+| CDevice::BeginRingBig | 826733B8 | **82B56A98** | (device, count): ring + 4·count > limit (+52) → KickOff, then the segment allocator. Returns the ring. |
+| Ring segment allocator | 82671ED0 | **82B57228** | (device, dwords). Its callers are exactly BeginRingBig, KickOffSegment and Swap, as in Monster High. Uses +13792. |
+| RingBufferDeviceAllocate | 826716D8 | **82B56E58** | AllocateInlineData calls it as (device, 1, &size, alignment). |
+| CDevice::AllocateInlineData | 82671DE8 | **82B57088** | (device, dwords, alignment): bytes = 4·dwords, from the command buffer (+13792) or RingBufferDeviceAllocate. |
+| CDevice::BlockOnFence | 82671A68 | **82B57F60** | (device, fence, type, no_kick): the pending test on +11024/+11036, then KickOff when the fence is the current one and +13472 is clear. |
+| D3D::SynchronizeToPresentationInterval | 82663DB8 | **82B58B18** | The only small function setting the swap-pending flag (0x10 of +11069). Called by Swap. |
+| D3DDevice_Swap | 82664278 | **82B59050** | The only caller of VdSwap. Increments +16840. Copies 24 bytes of scaler parameters from arg 2 + 28. |
+| D3DDevice_DrawVertices | 826747A0 | **82B55D68** | Exactly 0x418 before DrawIndexedVertices, as in SA2 and Monster High. Same state flush (`sub_82B5A258`, `82B5B2A8`, `82B59B28` …) without the index buffer. Called by Unreal's `sub_82A52870`. |
+| D3DDevice_DrawIndexedVertices | 82674BB8 | **82B56180** | Reads the index buffer (+12684), then the draw packets. Called by Unreal's `sub_82A52908`. |
+| DrawVerticesUP / DrawIndexedVerticesUP | 82674178 | **82B55368 / 82B55828** (to be confirmed by the census) | The only two functions setting the ring to +13716 after a copy. 82B55368 has 8+ game callers, 82B55828 has 2. |
+| Resolve (copy worker) | 8266FD30 | **82B5DF10** | The only function programming RB_COPY_CONTROL (0x2318). Under LTCG it's called straight from game code (`sub_82A53D20`, `82A54E80`, `82A55EC0`), with no 19-instruction wrapper. |
+| XGRegisterVertexShader | 8266AC10 | **82B54ED8** | Clears 872 bytes, type 6, reference 1, physical part at +0x20, container at +0x368. Called by Unreal's `sub_82A57888`. |
 
-## Also found
-
-- D3DDevice_CreateVertexShader `sub_8266AD08`, D3DDevice_CreatePixelShader `sub_8266AA98`, D3DResource_Release
-  `sub_8265CA20`, D3DResource_IsSet `sub_8265BD98`, D3DDevice_Reset `sub_8265DB70`.
-- D3DDevice_DrawIndexedVerticesUP: `sub_82674700` (copies vertices and indices after `sub_826741C0`). Linked, not run in
-  the census, and not among SA2's hooks: Renut must cover it if the game uses it.
-- The GPU interrupt callback `sub_82671458`; the hardware initialisation `sub_82682DD8` (VdInitializeEngines,
-  VdSetGraphicsInterruptCallback); the ring set-up `sub_82673800`; the gamma ramp `sub_8267C7B8`.
-- The functions writing DRAW_INDX with a constant header (`82691F80`, `82692EA0`, ...) and the PIX shader record
-  `sub_8266CCE0` never ran: not on the game's path.
-
-## Side finding: a busy-wait
-
-CBlocker::Check (`sub_8265D768`, with `sub_82650958`) runs about 315,000 times a frame: Direct3D waits for the GPU by
-spinning, which is why the main thread reads ~100 % CPU even at 60 fps. Renut completes fences on its own render
-thread, so this wait goes away with the new renderer.
-
-## Other addresses the renderer uses
-
-Renut's CreateDevice hook (sa2-nx `gpu/d3d/hooks/device.cpp`, `Sa2CreateDevice`) calls two of Direct3D's own functions
-and writes two globals. From our hardware path `sub_82683408` and the no-hardware path `sub_82682EE0`:
-
-| What | SA2 | Monster High | Evidence |
-|---|---|---|---|
-| D3D::InitializePresentationParameters (CDevice*, D3DPRESENT_PARAMETERS*) | sub_8255CB20 | **sub_82683188** | The hardware path calls it with the device and arg 5 and fails on 0; D3DDevice_Reset calls it too. |
-| D3D::InitializeApiState (CDevice*) | sub_8255C150 | **sub_826827B8** | Called right after it in the hardware path, and at the end of the no-hardware path. |
-| D3D::XenonGpu_Initialize | (in the type-2 path) | **sub_82670EF8** | First call of the no-hardware path `sub_82682EE0`. |
-| VdGlobalDevice import slot | 0x82000710 | **0x82000794** | The hardware path stores the device at *(0x82000794) for the title process (0x82000790 otherwise); IsFencePending reads the same slots. |
-| Global qword copied to +11008 | 0x82980268 | **0x82C68C38** | `sub_82682E70`: `lis r11,-32057` / `ld r11,-29640(r11)` / `std r11,11008(r3)`. |
-| GetCurrentThreadId | | **sub_82650958** | Stored at +11016 by `sub_82682E70` (SA2's kDeviceOffsetCreationThreadId); the 3-instruction function of the busy-wait. |
-
-Hardware-path fields, all SA2's: critical sections +15348 and +15376; fence word +11024 (128 bytes) and the swap's
-scratch +11028 (32 bytes); -1 at +21968 and +21972; QueryPerformanceFrequency and its reciprocal as floats at +21996 and
-+22000; the side buffer (0x12C0 bytes) at +17136; is-title-process at +11020.
+Still open, for the runtime census: ClearF (candidates `82B51E88`, `82B521D8`), XGRegisterPixelShader, the
+CreateVertexShader/CreatePixelShader path, IsFencePending, InsertCallback, CBlocker::Check, BeginVertices. Also how
+many shaders the game registers through XG versus loading them straight from its packages (gears2-nx saw only 7
+shader objects created in Gears of War 2).

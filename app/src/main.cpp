@@ -1,4 +1,4 @@
-// Monster High: New Ghoul in School (Xbox 360): application entry point.
+// Alice: Madness Returns (Xbox 360): application entry point.
 
 #include "generated/default/alice_init.h"
 

@@ -1,4 +1,4 @@
-# Monster High: New Ghoul in School - ReXGlue recompiled project (the SDK's init template).
+# Alice: Madness Returns - ReXGlue recompiled project (the SDK's init template).
 #
 # SDK boilerplate lives in generated/rexglue.cmake (written by the code generator). Configure with
 # -DREXSDK_DIR=<sa2-nx>/sdk; tools/build_pc.sh does it.
@@ -60,7 +60,7 @@ if(REXGLUE_PLATFORM_SWITCH)
         set(ALICE_NRO_ICON "${CMAKE_CURRENT_SOURCE_DIR}/switch/icon.jpg")
     endif()
     rexglue_switch_add_nro(alice
-        NAME "Monster High: New Ghoul in School"
+        NAME "Alice: Madness Returns"
         AUTHOR "alice-nx (unofficial)"
         VERSION "1.0.0"
         ICON "${ALICE_NRO_ICON}")
