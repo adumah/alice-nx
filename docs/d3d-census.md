@@ -116,7 +116,7 @@ the rule until checked.
 |---|---|---|---|
 | GlobalQword, CreationThreadId, IsTitleProcess | 11008, 11016, 11020 | same | confirmed (CreateDevice) |
 | FenceCompletion, FenceTag, Flags, SwapFlags | 11024, 11036, 11068, 11069 | same | confirmed |
-| SwapFenceTag | 11056 | 11056? | not checked |
+| SwapFenceTag | 11056 | 11056 | confirmed (Swap stores there) |
 | VertexDeclaration | 12240 | 12112 | inferred (−128) |
 | StreamStrides (u8 [16], stride / 4) | 12904 | 12776 | confirmed (both UP draws store there) |
 | StreamSources [16], Textures [26] | 12836, 12920 | 12708, 12792 | confirmed (D3DResource_IsSet `82B4C048` loops 16 / 26 slots from these) |
@@ -124,7 +124,8 @@ the rule until checked.
 | PixelShader, VertexShader | 13068, 13072 | 12940, 12944 | confirmed (D3DResource_IsSet) |
 | Predication | 13084 | 12956 | inferred |
 | InKickOff, VerticesRingEnd, CommandBuffer | 13600, 13844, 13920 | 13472, 13716, 13792 | confirmed |
-| PresentFenceTag, CriticalSection0/1 | 15344, 15348, 15376 | 15216, 15220, 15248 | inferred |
+| PresentFenceTag | 15344 | 15216 | confirmed (Swap reads and writes it) |
+| CriticalSection0/1 | 15348, 15376 | 15220, 15248 | inferred |
 | SwapCount, SideBuffer | 16968, 17136 | 16840, 17008 | confirmed (Swap; CreateDevice's 4800-byte alloc) |
 | PerfFrequency, TitleMinusOne, BehaviorFlags | 21996, 23380, 24392 | 21868, 23252, 24264 | BehaviorFlags confirmed (CreateDevice stores the constant 0x0C000001: LTCG folded the argument); the others inferred |
 

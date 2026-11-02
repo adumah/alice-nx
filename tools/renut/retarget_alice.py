@@ -52,7 +52,7 @@ CONSTANTS = {
 }
 # Device fields: Monster High -> Alice. Up to +11069 unchanged; from about +12100, Monster High's - 128.
 OFFSETS = {
-    'kDeviceOffsetSwapFenceTag': (11056, None),
+    'kDeviceOffsetSwapFenceTag': (11056, 11056),
     'kDeviceOffsetVertexDeclaration': (12240, 12112),
     'kDeviceOffsetIndexBuffer': (12812, 12684),
     'kDeviceOffsetRenderTargets': (12816, 12688),
