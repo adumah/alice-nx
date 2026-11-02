@@ -79,3 +79,8 @@ call and no access violation in any test so far (up to 8 minutes).
 - Every warning in the log is a normal existence probe: optional subtitle `.txt` and `.xxx` files beside the movies,
   `*TextureS.xxx` beside the `.tfc` caches, localized TOCs (POL/RUS/SLO), `Binaries\EpicInternal.txt`, and the
   `UPDATE:` device (no title update installed).
+- 20-minute run (2026-11-02, census build, scripted input): no fatal error, no unregistered call, no access violation.
+  The first ~8 minutes were movement, jumps and attacks in the orphanage (hallway and dormitory). After that, an A
+  press examined a drawing on the wall, which opens a text popup that only B closes, and the input loop sends no B. So
+  the rest of the run sat on that popup with the game running. Wider coverage (Wonderland, combat, saving and loading)
+  needs a person playing, or a smarter script.
