@@ -32,6 +32,18 @@ REXCVAR_DEFINE_INT32(alice_handheld_gpu_mhz, 768, "ALICE",
                      "460 or less: sa2_gpu_boost's official 460.8 MHz profile instead, nothing held. Read at start")
     .range(0, 768)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+// alice-nx (2026-11-02): the CPU. Gears of War 2's port (UE3 too, gears2-nx README "Performance") ran 12-17 fps at
+// the stock CPU clock and 24-27 at 1785 MHz: Unreal's game thread is the limit. Alice's first console runs with Renut
+// held the GPU at 768 but left the CPU at its stock 1020 MHz: 15-18 fps in gameplay, with the GPU at 21-25 ms and the
+// render thread at 9-12 ms of a 59 ms frame, so the game's own threads were the limit (docs/alice-notes.md). The
+// user's call (2026-11-02): hold 1785 MHz. Docked and handheld alike (both modes' CPU is 1020); the rate the CPU had
+// at start comes back at exit.
+// RISK: an overclock above Nintendo's clocks (sys-clk's usual 1785): more heat and power draw.
+REXCVAR_DEFINE_INT32(alice_cpu_mhz, 1785, "ALICE",
+                     "CPU clock in MHz, held by the game while it runs, docked and handheld: 1785 (default; above "
+                     "the console's stock 1020: more heat and power draw). 0: not touched. Read at start")
+    .range(0, 1785)
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_BOOL(alice_handheld_emc_1600, true, "ALICE",
                     "With alice_handheld_gpu_mhz above 460: the memory at 1600 MHz in handheld mode (the docked "
                     "clock; configuration 0x92220007) instead of 1331.2 (0x92220008). Read at start")
@@ -51,6 +63,7 @@ std::atomic<bool> g_stop{false};
 std::thread g_thread;
 u32 g_config_original = 0;
 bool g_has_original = false;
+u32 g_cpu_original_hz = 0;  // alice-nx: the CPU's rate at start, put back at exit
 
 bool ClockOf(PcvModuleId module, u32 &hz) {
   hz = 0;
@@ -69,11 +82,26 @@ bool SetClock(PcvModuleId module, u32 hz) {
   return ok;
 }
 
-void Hold(u32 gpu_hz, u32 config) {
+void Hold(u32 gpu_hz, u32 config, u32 cpu_hz) {
   bool handheld_before = false;
-  bool told = false;
-  int raises = 0, raises_reported = 0, failures = 0;
+  bool told = false, cpu_told = false;
+  int raises = 0, raises_reported = 0, failures = 0, cpu_raises = 0, cpu_failures = 0;
   for (int second = 0; !g_stop.load(std::memory_order_relaxed); ++second) {
+    // alice-nx: the CPU, in both modes (a mode change or waking from sleep puts the configuration's clock back).
+    if (cpu_hz) {
+      u32 cpu = 0;
+      if (ClockOf(PcvModuleId_CpuBus, cpu) && cpu + kMarginHz < cpu_hz) {
+        if (SetClock(PcvModuleId_CpuBus, cpu_hz)) {
+          ++cpu_raises;
+          cpu_told = false;
+        } else if (cpu_failures++ == 0) {
+          REXLOG_WARN("[clocks] clkrst refused the CPU clock {:.1f} MHz (it is at {:.1f})", cpu_hz / 1e6, cpu / 1e6);
+        }
+      } else if (!cpu_told && cpu) {
+        REXLOG_INFO("[clocks] CPU {:.1f} MHz ({} raises so far)", cpu / 1e6, cpu_raises);
+        cpu_told = true;
+      }
+    }
     ApmPerformanceMode mode = ApmPerformanceMode_Invalid;
     const bool handheld = R_SUCCEEDED(apmGetPerformanceMode(&mode)) && mode == ApmPerformanceMode_Normal;
     if (handheld != handheld_before) {
@@ -81,7 +109,7 @@ void Hold(u32 gpu_hz, u32 config) {
       handheld_before = handheld;
       told = false;
     }
-    if (handheld) {
+    if (handheld && gpu_hz) {
       u32 current = 0;
       if (R_SUCCEEDED(apmGetPerformanceConfiguration(ApmPerformanceMode_Normal, &current)) && current != config &&
           R_FAILED(apmSetPerformanceConfiguration(ApmPerformanceMode_Normal, config)) && failures++ == 0) {
@@ -112,7 +140,8 @@ void Hold(u32 gpu_hz, u32 config) {
 
 void Start() {
   const int32_t mhz = REXCVAR_GET(alice_handheld_gpu_mhz);
-  if (mhz <= 460) {
+  const int32_t cpu_mhz = REXCVAR_GET(alice_cpu_mhz);
+  if (mhz <= 460 && cpu_mhz <= 0) {
     sa2::enh::ApplyGpuBoost();
     return;
   }
@@ -122,11 +151,19 @@ void Start() {
     sa2::enh::ApplyGpuBoost();
     return;
   }
+  if (cpu_mhz > 0 && ClockOf(PcvModuleId_CpuBus, g_cpu_original_hz))
+    REXLOG_INFO("[clocks] CPU {} MHz held (it was {:.1f})", cpu_mhz, g_cpu_original_hz / 1e6);
+  if (mhz <= 460) {
+    // The GPU as sa2_gpu_boost has it; the thread holds the CPU alone (gpu_hz 0: the handheld part does nothing
+    // above the configuration).
+    sa2::enh::ApplyGpuBoost();
+  }
   g_has_original = R_SUCCEEDED(apmGetPerformanceConfiguration(ApmPerformanceMode_Normal, &g_config_original));
   const u32 config = REXCVAR_GET(alice_handheld_emc_1600) ? kConfigEmc1600 : kConfigEmc1331;
   REXLOG_INFO("[clocks] handheld: GPU {} MHz over configuration 0x{:08X} (the console's: 0x{:08X})", mhz, config,
               g_has_original ? g_config_original : 0u);
-  g_thread = std::thread(Hold, u32(mhz) * 1000000u, config);
+  g_thread = std::thread(Hold, mhz > 460 ? u32(mhz) * 1000000u : 0u, config,
+                         cpu_mhz > 0 ? u32(cpu_mhz) * 1000000u : 0u);
 #endif
 }
 
@@ -136,6 +173,7 @@ void Stop() {
   g_stop.store(true, std::memory_order_relaxed);
   g_thread.join();
   if (g_has_original) apmSetPerformanceConfiguration(ApmPerformanceMode_Normal, g_config_original);
+  if (g_cpu_original_hz) SetClock(PcvModuleId_CpuBus, g_cpu_original_hz);  // alice-nx
   clkrstExit();
   REXLOG_INFO("[clocks] the console's configuration 0x{:08X} again", g_config_original);
 #endif

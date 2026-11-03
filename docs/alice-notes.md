@@ -165,3 +165,35 @@ Same input script on both renderers (`60:START,75:A,90:START,105:A,118:A`, shots
 screens, at the same moments. **Still different:** Renut's picture is somewhat brighter and less saturated than the
 emulated GPU's. The menu's teal grading is missing, and the orphanage is lighter. Next candidates: the colour
 grading (a volume-texture LUT?), the gamma render-target formats (8_8_8_8_GAMMA), the display ramp.
+
+### On a real Switch with Renut (2026-11-02, first run)
+
+`ALICE_RENUT=ON tools/build_switch.sh` (80.9 MB NRO; the first try relinked the no-renderer NRO, since the script
+only took ALICE_RENUT at the first configure: fixed in 60cf91b), 293 shaders from the PC captures, handheld,
+1280x720. Log: out/nxlink.log (5 minutes of it, until the listener's time limit).
+- **What the user saw:** the menu and the movies are right; the game runs, about 24 fps in the first gameplay scene,
+  textures good. Wrong: the Doctor and a door all black, Charlie's and Alice's eyes missing, some children too dark,
+  glitches in the light shafts through the windows.
+- **From the log:** no error, fault or lost device; no exponent-bias warning. 30 fps early on (GPU ~1.4 ms a
+  frame), 12-17 fps in the 10 s windows later (GPU 24-28 ms, render thread 12-33 ms a frame), and drops to 9-10 fps
+  while uam compiled 178 variants (180 ms each, then kept in `deko3d_shaders.bin`).
+- **49 shaders not in the cache** (`Shader ... is not in the shader cache: captured to /switch/alice-nx/shader_capture/`):
+  their draws are skipped, the likely cause of the black and missing parts. Copied over DBI's MTP with `kioclient5`
+  (`mtp:/DBI MTP Responder/1: SD Card/switch/alice-nx/shader_capture/`) into out/pc/shader_capture: 342 in all.
+
+### Second console run, 342 shaders (2026-11-02)
+
+- 4 shaders still missing (was 49), no error. DKSH cache 178 hits, 62 new uam compiles.
+- 28-30 fps in the menus and movies; gameplay mostly **15-18 fps** (dips to 9-12), with the GPU at 21-25 ms and the
+  render thread at 9-12 ms of a ~59 ms frame. So the limit is the game's own threads (the translated code), not the
+  renderer.
+- The user saw: no New Game in the menu (only Continue: there's a save). In the hub, a child with only a head (body
+  missing); glitchy textures on the floor and in the light shafts; a big jump in brightness on going outside.
+- Clocks: the game held the GPU at 768 MHz and the memory at 1600, but left the **CPU at stock** (the log names no
+  CPU clock). gears2-nx (UE3) measured 12-17 fps at stock, 24-27 at CPU 1785 MHz: its game thread is 80-90 % busy.
+  Now `alice_cpu_mhz` (default 1785, the user's call; 0 = untouched) holds the CPU at 1785 in both modes and puts
+  the start rate back at exit (`app/src/cpu/alice_handheld_clocks.cpp`).
+- The build runs the **classic** codegen (`(classic codegen)` in the first log line): none of sa2-nx's CPU passes
+  (`tools/post_codegen.py`, the optimised flavour: registers as locals in loops and leaves, direct calls, read-only
+  constants, ...). gears2-nx's `gow2/CPU_OPTIMIZATION.md` got its game thread out of the way with registers kept in
+  host registers between calls. Next big CPU step, to be checked on PC before the console.
