@@ -197,3 +197,22 @@ only took ALICE_RENUT at the first configure: fixed in 60cf91b), 293 shaders fro
   (`tools/post_codegen.py`, the optimised flavour: registers as locals in loops and leaves, direct calls, read-only
   constants, ...). gears2-nx's `gow2/CPU_OPTIMIZATION.md` got its game thread out of the way with registers kept in
   host registers between calls. Next big CPU step, to be checked on PC before the console.
+
+### Every shader from the game's packages (2026-11-02)
+
+`tools/renut/ue3_extract_shaders.cpp` (gears2-nx's `gow2_extract_shaders.cpp`, adapted; build line at its use in
+`tools/renut/extract_shaders.sh`) reads every cooked package and writes each Xenos container once, named by XXH3 as
+Renut's capture does (`{vs,ps}_<xxh3>.bin`).
+- Alice's packages: UE3 file version 690 (licensee 0, engine 6759, cooker 107), chunk compressed, CompressionFlags 4
+  (LZX, XMemCompress framing, window 2^17). The summary has four more words than Gears' 575 between DependsOffset and
+  the GUID: with them, AliceEntryExtra.xxx's first chunk is at compressed offset 749, where its tag is. Blocks whose
+  compressed size equals the uncompressed size are stored raw (88 failed as LZX before).
+- Where the shaders are: `GlobalShaderCache-Xbox360.bin` (GSMB, plain) has 241 containers as they are; the map
+  packages' **SeekFreeShaderCache** holds the material shaders in compressed chunks: u32 uncompressed size, u32
+  compressed size, an LZX stream (Chapter1_W2_ASSEM_01_S.xxx: 90 chunks of 3-23 containers each, 467 shaders).
+- Whole game (1,949 files, 17 minutes): 63,601 code chunks, **29,701 distinct shaders** (28,454 pixel, 1,247
+  vertex; 117 MB). **All 367 shaders captured by playing are among them**, byte for byte. Not decoded: the first
+  chunk of Chapter1_W2_CP_World.xxx and 6 chunks of other packages (LZX error 11 or 3): a few shaders may still be
+  missed; the runtime capture stays as the fallback.
+- Cost (a sample of 1,000): XenosRecomp 118 s, GLSL passes with uam checks 69 s, GLSL package 1.3 MB. On the Switch
+  the GLSL package is decompressed per shader (zstd dictionary), and the SPIR-V cache isn't used.

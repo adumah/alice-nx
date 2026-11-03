@@ -73,6 +73,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   **DirectX Shader Compiler** (University of Illinois/NCSA and LLVM licences), installed into that tree from its
   official release.
 
+## gears2-nx
+
+- Project: https://github.com/VasilkovND/gears2-nx (GPL-3.0), the Nintendo Switch port of Gears of War 2 (UE3).
+- `tools/renut/ue3_extract_shaders.cpp` is a modified copy of its `shaders/gow2_extract_shaders.cpp` (at commit
+  3033a796): the shader extraction from cooked UE3 packages, adapted to Alice's file version 690 and its compressed
+  shader code (the changes are listed at its top). It builds with the sa2-nx tree's **libmspack** (LGPL-2.1) and
+  **xxHash** (BSD-2-Clause).
+
 ## Switch build tools
 
 - **deko3d**, **libnx** and devkitA64 from devkitPro (installed separately).
