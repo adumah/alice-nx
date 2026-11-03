@@ -131,3 +131,37 @@ Built with `ALICE_RENUT=ON tools/build_pc.sh`, run with `--sa2_renderer=renut --
   viewport (Alice's SetViewport writes the PA_CL_VPORT floats at 10504-10524). The Vulkan validation layer is not
   installed here. Next: find where the colour is lost (a draw's output, a resolve, or the present), e.g. by reading a
   render target back after a known draw.
+
+### The black picture, found and fixed (2026-11-02)
+
+Narrowed down step by step, with temporary diagnostics (removed afterwards):
+- **The present is fine.** Swap's front buffer 40001970 has its host texture every frame (1280x720, slot 3, written
+  by a resolve). Presenting a disc-loaded texture instead (a movie plane, R8_UNORM) showed its values (11, and 16 =
+  video black), not 0. So the scan-out and the capture work.
+- **Clears, resolves and the front buffer are fine.** With every colour clear in `ClearTargets` forced to magenta,
+  the front buffer and the 322x182 target 422A6CC0 came out **solid magenta**: not one pixel of any draw landed,
+  not even unblended draws with colour mask F. (Forcing only the resolve-and-clear path changed nothing: the game's
+  colour clears don't go through it.)
+- **The draws had no vertices.** No `[streamdump]` line for any draw: the host layout's stream mask was 0. A log of
+  the draws' declarations showed device +12120 = **0** for 20 of 21 (declaration, shader) pairs, with `NoDeclaration()`
+  (0 elements) as the fallback, although the shaders have inputs. Every vertex read the zero stream.
+- **Cause:** UE3's RHISetBoundShaderState `82A51520` normally stores a null declaration and sets a vertex shader that
+  D3DVertexShader_Bind already patched for the state's declaration (d3d-census.md, last section). Bind is inlined
+  under LTCG, so Renut never saw it, and the shader captured at registration has unpatched fetches.
+- **Fix:** hook `82A51520`. The bound shader (`[[state+4]+0]+8`) gets the state's declaration (`[state+0]`) as its
+  `bound_declaration`, queued to the render thread only when the pairing changes. After it, every logged pair had
+  elements (22 of 22), and the frames have colour: the logos, the title screen and the menu, and gameplay in the
+  orphanage, at 30.00 fps.
+
+### The overexposed scene: the resolve exponent bias (2026-11-02)
+
+With the vertices fixed, the 3D scene (menu Alice, the orphanage) came out far brighter than on the emulated GPU,
+while the UI was right. The HDR scene resolves pass flags F4000000: D3DRESOLVE_EXPONENTBIAS −3 (bits 26-31), so the
+hardware writes the colour / 8. Renut copied the bits. Now a resolve with a bias is drawn through `resolve_copy_ps`
+with `param0` = 2^bias, on every backend. If the drawn copy isn't possible (different formats, multisampled), it
+logs a warning and copies as before; no such warning came up in the test runs.
+
+Same input script on both renderers (`60:START,75:A,90:START,105:A,118:A`, shots at 70/100/130/160 s): the same
+screens, at the same moments. **Still different:** Renut's picture is somewhat brighter and less saturated than the
+emulated GPU's. The menu's teal grading is missing, and the orphanage is lighter. Next candidates: the colour
+grading (a volume-texture LUT?), the gamma render-target formats (8_8_8_8_GAMMA), the display ramp.

@@ -175,3 +175,13 @@ declaration's address, device + 12440, there; 4 users, none of 12112), the viewp
 15280 (Swap), the presentation interval 13872 (InitializeApiState saves and restores it), TitleMinusOne 23664. Below
 11072 (the register image, the fetch constants at +1152 and +1776, the fence words, the flags) the layout is SA2's.
 The snapshot (`kDeviceSnapshotSize`) ends at 12960; the private range the deltas skip ends at 12096.
+
+## UE3's bound shader state and the resolve exponent bias (2026-11-02, the black picture)
+
+| What | Address | Evidence |
+|---|---|---|
+| UE3 RHISetBoundShaderState | **`82A51520`** (r3 = the bound shader state) | 90 call sites (`tools/find_calls.py 0x82A51520`). Unless `[0x832E1884]` > 1 and `[0x8336BA78]` != 0, it stores **0** at device +12120 (`82A51568 stw r10,12120(r11)` with `li r10,0`) and sets the vertex shader `[[state+4]+0]+8` (`82A51578`-`82A51588`, then `bl 82B54FD0`); otherwise it stores `[state+0]` there (`82A515A0`) and sets `[state+8]+8`. Both paths OR 0x80000 into the dirty mask at +16. The pixel shader is `[state+12]+8` (`bl 82B54D18`). |
+| Bound shader state layout | +0 declaration, +4 wrapper of the vertex shader **bound** to it, +8 wrapper of the plain vertex shader, +12 wrapper of the pixel shader (each wrapper's +8 is the Direct3D object) | from the loads above |
+| D3DVertexShader_Bind | **not found** (inlined under LTCG) | The +4 shader is set with a null declaration, so it must have been bound to the +0 declaration already. Renut's hook of `82A51520` gives that shader the declaration as `bound_declaration`. |
+| Other stores of +12120 | `82A543B0` (UE3, a real object from `[r23-7896]`), InitializeApiState `82B65DCC`, `82B5C5CC`, `82DD68F4`, `83057EAC` | `tools/find_disp.py 12120`: 14 hits |
+| Resolve exponent bias | flags bits 26-31, signed (D3DRESOLVE_EXPONENTBIAS) | The HDR scene resolves (RGBA16F 40044440 → texture 404A24C0) pass **F4000000**: bias −3, the colour × 1/8. Seen in `--banjo_renut_diag_resolve_trace=true`. |

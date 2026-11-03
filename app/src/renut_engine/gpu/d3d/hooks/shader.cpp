@@ -497,3 +497,39 @@ BANJO_RENUT_HOOK_RAW(sub_82B551A0) {
   if (const auto *elements = declaration && elements_va ? GuestPtr<const GuestVertexElement>(elements_va) : nullptr)
     RegisterGuestDeclaration(declaration, elements);
 }
+
+// alice-nx (2026-11-02, the black picture): UE3's RHISetBoundShaderState, sub_82A51520 (r3 = the bound shader state;
+// 90 call sites). The state holds the declaration at +0 and three wrappers whose +8 is the Direct3D object: at +4 a
+// vertex shader already bound to that declaration (D3DVertexShader_Bind, inlined under LTCG: no hook), at +8 the
+// plain vertex shader, at +12 the pixel shader. Unless [0x832E1884] > 1 and [0x8336BA78] != 0, it takes the first:
+// it stores a null declaration at device +12120 (82A51568) and sets the bound shader (82B54FD0). Renut then had no
+// declaration for the draw and the shader's fetches gave no streams: every vertex read the zero stream, so no draw
+// covered a pixel (docs/alice-notes.md, "The black picture"). The bound shader takes the state's declaration here, as
+// the Bind hook would have given it; the strides stay SetStreamSource's.
+BANJO_RENUT_HOOK_RAW(sub_82A51520) {
+  const u32 state = ctx.r3.u32;
+  if (state) {
+    const auto *words = GuestPtr<const be_u32>(state);
+    const u32 declaration = words[0];
+    const u32 wrapper_ref = words[1];
+    const u32 wrapper = wrapper_ref ? u32(GuestPtr<const be_u32>(wrapper_ref)[0]) : 0;
+    const u32 shader = wrapper ? u32(GuestPtr<const be_u32>(wrapper)[2]) : 0;
+    if (declaration && shader) {
+      // Queued only when the pairing changes (the game's rendering thread calls this per draw batch).
+      thread_local std::unordered_map<u32, u32> paired;
+      u32 &known = paired[shader];
+      if (known != declaration) {
+        known = declaration;
+        render_thread::Queue([shader, declaration] {
+          ShaderRecord *vs = FindShaderLocked(shader, RecordKind::VertexShader);
+          const VertexDeclarationRecord *d = FindGuestDeclarationLocked(declaration);
+          if (!vs || !d)
+            return;
+          vs->bound_declaration = std::make_unique<VertexDeclarationRecord>(*d);
+          std::fill(std::begin(vs->bound_strides), std::end(vs->bound_strides), 0u);
+        });
+      }
+    }
+  }
+  __imp__sub_82A51520(ctx, base);
+}

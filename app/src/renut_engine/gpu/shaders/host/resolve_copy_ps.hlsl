@@ -8,5 +8,8 @@
 float4 main(float4 position : SV_Position) : SV_Target0
 {
     const int2 texel = int2(position.xy) + int2(g_Push.translate);
-    return g_Textures[NonUniformResourceIndex(g_Push.textureIndex)].Load(int3(texel, 0));
+    const float4 value = g_Textures[NonUniformResourceIndex(g_Push.textureIndex)].Load(int3(texel, 0));
+    // alice-nx (2026-11-02): param0, when not 0, is the resolve's exponent bias as a factor (2^bias, D3DRESOLVE flag
+    // bits 26-31): Alice's HDR scene resolves pass -3. 0 (every other caller) copies the bits as before.
+    return g_Push.param0 != 0.0f ? value * g_Push.param0 : value;
 }

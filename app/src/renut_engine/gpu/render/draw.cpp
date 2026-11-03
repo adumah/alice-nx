@@ -5239,7 +5239,7 @@ void DepthHandOverBeforeBindLocked(HostSurface *surface, const plume::RenderRect
 // fragment barriers and overlaps the work around it. Same format both sides, 2D level 0, slice 0: every texel is written
 // back bit for bit. 'rect' is the source rect and (host_x, host_y) its place in the destination, in host pixels.
 bool DrawResolveCopy(HostSurface *surface, HostTexture *dest, const plume::RenderRect &rect, uint32_t host_x,
-                     uint32_t host_y) {
+                     uint32_t host_y, float scale = 0.0f) {
   auto &s = State();
   if (!s.resolve_copy_ps || !dest->texture || !dest->render_target || dest->host_format != surface->format ||
       dest->dimension != TextureDimension::Tex2D || dest->stacked)
@@ -5305,6 +5305,7 @@ bool DrawResolveCopy(HostSurface *surface, HostTexture *dest, const plume::Rende
   push.translate[1] = float(rect.top - int32_t(host_y));
   push.texture_index = source_slot;
   push.sampler_index = kPointClampSamplerSlot;
+  push.param0 = scale;  // alice-nx: the exponent bias's factor, 0 for none (resolve_copy_ps.hlsl)
   cmd->setGraphicsPushConstants(0, &push, 0, sizeof(push));
   cmd->drawInstanced(3, 1, 0, 0);
   banjo::renut_gpu::CountDrawnResolve();
@@ -5497,6 +5498,10 @@ void ResolveStateLocked(const u8 *device_state, u32 flags, const ClearRect *sour
     return;
 
   const u32 source = flags & 7;
+  // alice-nx (2026-11-02, the overexposed scene): D3DRESOLVE_EXPONENTBIAS, a signed 6-bit power of two in bits 26-31.
+  // Alice's HDR scene resolves (RGBA16F into the scene texture) pass flags F4000000: a bias of -3, the colour / 8. The
+  // copy ignored it, so the tonemapper read the scene eight times too bright (docs/alice-notes.md).
+  const int exp_bias = int(int32_t(flags) >> 26);
   const u32 source_va = source == 4 ? device.U32(d3d::kDeviceOffsetDepthStencil)
                                     : device.U32(d3d::kDeviceOffsetRenderTargets + source * 4);
   HostSurface *surface = GetHostSurfaceLocked(source_va);
@@ -5621,10 +5626,19 @@ void ResolveStateLocked(const u8 *device_state, u32 flags, const ClearRect *sour
           TransitionTextureLocked(dest, plume::RenderTextureLayout::RESOLVE_DEST);
           cmd->resolveTextureRegion(dest->texture.get(), host_x, host_y, surface->texture.get(),
                                     &rect);
+        } else if (exp_bias && slice == 0 && z == 0 &&
+                   DrawResolveCopy(surface, dest, rect, host_x, host_y, std::ldexp(1.0f, exp_bias))) {
+          // alice-nx (2026-11-02): a resolve with an exponent bias is drawn, scaled by 2^bias, on every backend.
         } else if (IsDeko3D() && banjo::renut_gpu::DrawResolvesOn() && slice == 0 && z == 0 &&
                    DrawResolveCopy(surface, dest, rect, host_x, host_y)) {
           // banjo-nx (2026-10-18): drawn, not copied (deko3d).
         } else {
+          if (exp_bias) {
+            static uint32_t bias_logged = 0;
+            if (LogLimited(bias_logged, 4))
+              RGPU_WARN("Resolve {:08X} -> {:08X}: exponent bias {} not applied (no drawn copy: format {} -> {})",
+                        source_va, dest_texture_va, exp_bias, u32(surface->format), u32(dest->host_format));
+          }
           TransitionSurfaceLocked(surface, plume::RenderTextureLayout::COPY_SOURCE);
           TransitionTextureLocked(dest, plume::RenderTextureLayout::COPY_DEST);
           const plume::RenderBox box(rect.left, rect.top, rect.right, rect.bottom);
