@@ -33,7 +33,14 @@ if [[ ! -f "$build/build.ninja" ]]; then
     -DCMAKE_TOOLCHAIN_FILE="$sa2/tools/switch/cmake/switch-devkitA64.cmake" -DDEVKITPRO="$DEVKITPRO" \
     -DREXSDK_DIR="$sa2/sdk" -DREXGLUE_SWITCH_NVK_SDK="$stub" -DREXGLUE_SWITCH_NO_NVK=ON -DALICE_RENUT_RENDERER="$renut" \
     > "$root/out/nx_configure.log" 2>&1 || { tail -n 40 "$root/out/nx_configure.log"; exit 1; }
+else
+  # An existing tree keeps its cache: ALICE_RENUT is applied again on every run (before 2026-11-02 only the first
+  # configure took it, so ALICE_RENUT=ON on a tree configured without Renut built an NRO with no renderer).
+  cmake -S "$root/app" -B "$build" -DALICE_RENUT_RENDERER="$renut" > "$root/out/nx_configure.log" 2>&1 ||
+    { tail -n 40 "$root/out/nx_configure.log"; exit 1; }
 fi
+grep -q "^ALICE_RENUT_RENDERER:BOOL=$renut\$" "$build/CMakeCache.txt" ||
+  { echo "out/nx is not configured with ALICE_RENUT_RENDERER=$renut" >&2; exit 1; }
 set +e
 cmake --build "$build" --target alice -j "$jobs" > "$root/out/nx_build.log" 2>&1
 code=$?
