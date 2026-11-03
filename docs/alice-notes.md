@@ -216,3 +216,19 @@ Renut's capture does (`{vs,ps}_<xxh3>.bin`).
   missed; the runtime capture stays as the fallback.
 - Cost (a sample of 1,000): XenosRecomp 118 s, GLSL passes with uam checks 69 s, GLSL package 1.3 MB. On the Switch
   the GLSL package is decompressed per shader (zstd dictionary), and the SPIR-V cache isn't used.
+
+### Third console run: every shader, CPU at 1785 MHz (2026-11-03)
+
+`out/nx/alice.nro` (151 MB, 29,701 shaders), handheld 1280x720. Log: out/nxlink.log (12:15-12:21, until the
+listener's time limit).
+- Clocks: `[clocks] CPU 1785 MHz held (it was 1020.0)`; GPU 768 MHz.
+- **0 shaders missing** (no "not in the shader cache" line); uam 68 compiles, 0 failed; DKSH cache 187 hits.
+- fps per 10 s window: movies/menu 30 (GPU 1.4 ms); orphanage and streets **26-30 fps** (GPU 20-36 ms; was 15-18
+  before the CPU clock). Then a load window (13.5 fps, ~12:20:30), and after it **~21 fps with the GPU at 45-52 ms**,
+  render thread ~9 ms: GPU-bound.
+- **What the user saw:** textures good until the rooftop of one of the buildings; there everything turns white, and
+  Alice too once she steps into it. That is where the GPU time doubles. Likely the "brightness jump going outside"
+  from the second run, gone to the end: NaN/Inf or a runaway value in the HDR scene / eye adaptation, spread by bloom
+  and the tonemap. Next: reproduce on PC (Renut, Vulkan) from the console's checkpoint save
+  (`sdmc:/switch/alice-nx/alice/B13EBABEBABEBABE/45410916/00000001/Alice2Checkpoint.sav`, the same layout as
+  `~/.local/share/alice/...` on PC).
