@@ -60,9 +60,16 @@ class AliceApp : public rex::ReXApp {
            // 480p (the HUD stays 720p), cheaper particle LODs, foliage to half its distance, critical sections spin
            // before they wait (mk9-nx +1 %).
            "alice_screen_percentage = 66.7\n"
-           "alice_particle_lod_bias = 1\n"
            "alice_foliage_distance = 0.5\n"
            "kernel_critsec_spin = 1024\n"
+           // alice-nx (2026-11-04, console runs 14-16): decals off until their drawing is fixed (with the depth bias
+           // applied, one under Alice shows as a square); the particle LOD bias dropped (it hid the oil on the floors
+           // beyond a few metres); Renut's shader specialisations off: one variant per shader instead of several, so
+           // fewer compiles while playing (the first-use spikes).
+           "alice_decals = false\n"
+           "banjo_gpu_output_trim = false\n"
+           "banjo_gpu_blend_skip = false\n"
+           "banjo_gpu_bool_spec = false\n"
            "asset_pack = true\n"
            "asset_pack_build = true\n"
            "log_level = \"info\"\n"

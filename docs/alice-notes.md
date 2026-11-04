@@ -402,3 +402,26 @@ its console profile showed the main thread waiting a quarter of its samples on t
   console, where the drawings are.
 - Defaults on the Switch now (BuiltInConfig): alice_screen_percentage 66.7, alice_particle_lod_bias 1,
   alice_foliage_distance 0.5, kernel_critsec_spin 1024 (the user's choice after the runs above).
+
+### Console runs 13-16: spikes, the square under Alice, the read cache (2026-11-04 night)
+
+All on out/alice_depthbias.nro (skip_msr + locals, depth bias), handheld, CPU 1785 / GPU 768.
+- 13 (defaults: 480p, particle LOD 1, foliage 0.5, critsec spin; log out/nxlink_depthbias.log): **z-fighting fixed**
+  (the user). 28.6 fps on average; 12 of 28 windows have a frame over 100 ms, worst 2.37 s. The spikes are the
+  shader variants compiled at first use ("uam: run-time variant", 49 compiles, 115 ms on average; the 2.37 s one is a
+  28 KB pixel-shader variant at 01:05:25.6). The oil on the floor shows only near Alice.
+- 14 (+ banjo_gpu_output_trim / blend_skip / bool_spec off, particle LOD back to 0; out/nxlink_nospec.log): 29.1
+  fps; 162 compiles (the generic variants were not in the SD cache yet); worst 4.35 s. The oil still only near Alice;
+  **a square on the ground under Alice**, first seen with the depth-bias build.
+- 15 (+ alice_decals false; out/nxlink_nodecals.log): **the square is gone** (a decal drawn wrong once it is in front
+  of its surface: to fix on the PC). 29.3 fps over 44 windows; 73 compiles, DKSH cache 235 hits. Spikes left: with
+  compiles in the window (0.4-1.65 s) and without any, with slow SD reads (1.0 s at 01:23:13 and 01:27:03): the game
+  loading an effect's data at first use, again minutes later (the user: snail shells, getting hurt, the first shots,
+  entering new zones).
+- 16 (+ `sa2_io_ranges_min_kb=4 sa2_io_ranges_mb=256`, the SDK's exact-range read cache down to 4 KB reads;
+  out/nxlink_iocache.log): 39 % hits (1,548, 54.9 MB from RAM), worst spike 0.87 s, but 14 of 35 windows still over
+  100 ms and 27.5 fps; **Alice's body invisible, only her hair**. Dropped. The cached path triggers the same physical
+  heap callbacks (xfile.cpp ReadSync) as a read from the SD; suspect: a file the game rewrites and reads back (a
+  cached range served stale). Not checked yet.
+- Switch defaults now (out/alice_best.nro): 480p, foliage 0.5, critsec spin 1024, decals off, the three Renut
+  specialisations off; particle LOD bias dropped.
