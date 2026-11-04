@@ -87,21 +87,6 @@ void Hold(u32 gpu_hz, u32 config, u32 cpu_hz) {
   bool told = false, cpu_told = false;
   int raises = 0, raises_reported = 0, failures = 0, cpu_raises = 0, cpu_failures = 0;
   for (int second = 0; !g_stop.load(std::memory_order_relaxed); ++second) {
-    // alice-nx: the CPU, in both modes (a mode change or waking from sleep puts the configuration's clock back).
-    if (cpu_hz) {
-      u32 cpu = 0;
-      if (ClockOf(PcvModuleId_CpuBus, cpu) && cpu + kMarginHz < cpu_hz) {
-        if (SetClock(PcvModuleId_CpuBus, cpu_hz)) {
-          ++cpu_raises;
-          cpu_told = false;
-        } else if (cpu_failures++ == 0) {
-          REXLOG_WARN("[clocks] clkrst refused the CPU clock {:.1f} MHz (it is at {:.1f})", cpu_hz / 1e6, cpu / 1e6);
-        }
-      } else if (!cpu_told && cpu) {
-        REXLOG_INFO("[clocks] CPU {:.1f} MHz ({} raises so far)", cpu / 1e6, cpu_raises);
-        cpu_told = true;
-      }
-    }
     ApmPerformanceMode mode = ApmPerformanceMode_Invalid;
     const bool handheld = R_SUCCEEDED(apmGetPerformanceMode(&mode)) && mode == ApmPerformanceMode_Normal;
     if (handheld != handheld_before) {
@@ -125,6 +110,25 @@ void Hold(u32 gpu_hz, u32 config, u32 cpu_hz) {
       } else if (!told && gpu && ClockOf(PcvModuleId_EMC, emc)) {
         REXLOG_INFO("[clocks] handheld: GPU {:.1f} MHz, memory {:.1f} MHz", gpu / 1e6, emc / 1e6);
         told = true;
+      }
+    }
+    // alice-nx: the CPU, in both modes (a mode change or waking from sleep puts the configuration's clock back).
+    // alice-nx (2026-11-03): after the configuration step above, not before it. Re-applying the handheld
+    // configuration (apmSetPerformanceConfiguration) also puts the CPU back to the configuration's 1020 MHz, so a
+    // CPU check made before it left the CPU at 1020 for up to a second each time (fourth console run: 70 CPU
+    // raises and 105 GPU raises in 3.5 minutes).
+    if (cpu_hz) {
+      u32 cpu = 0;
+      if (ClockOf(PcvModuleId_CpuBus, cpu) && cpu + kMarginHz < cpu_hz) {
+        if (SetClock(PcvModuleId_CpuBus, cpu_hz)) {
+          ++cpu_raises;
+          cpu_told = false;
+        } else if (cpu_failures++ == 0) {
+          REXLOG_WARN("[clocks] clkrst refused the CPU clock {:.1f} MHz (it is at {:.1f})", cpu_hz / 1e6, cpu / 1e6);
+        }
+      } else if (!cpu_told && cpu) {
+        REXLOG_INFO("[clocks] CPU {:.1f} MHz ({} raises so far)", cpu / 1e6, cpu_raises);
+        cpu_told = true;
       }
     }
     if (second % kReportEverySeconds == kReportEverySeconds - 1 && raises != raises_reported) {

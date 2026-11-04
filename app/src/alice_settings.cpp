@@ -8,7 +8,7 @@
 // (r31 = r3). Its five callers: 82430CBC, 82430E18, 82430ED0, 8243175C (section 820C3C2C, L"SystemSettings") and
 // 82432964 (r3 = this+4, L"SystemSettingsEditor" and L"SystemSettings").
 //
-// With alice_shadows off, both fields are zeroed after every load, so whatever section or file the game loads
+// With alice_shadows off, both fields are zeroed after every load (the other alice_* switches below work the same way), so whatever section or file the game loads
 // (the split-screen sections too), the renderer sees shadows disabled. The disc files are not touched.
 // WHY: the user asked for shadows off (2026-11-03), for frame rate; the shadow depth passes are GPU work in every
 // scene with a dynamic light. NOT EXACT: the picture changes (no dynamic shadows), by design.
@@ -23,11 +23,38 @@
 REXCVAR_DEFINE_BOOL(alice_shadows, false, "ALICE",
                     "The game's dynamic shadows (UE3 SystemSettings DynamicShadows and LightEnvironmentShadows): "
                     "false = off (default, faster), true = the game's own setting. Read at each settings load");
+// alice-nx (2026-11-03, the user: "improve FPS while the camera is looking at water, or turn off reflections"). The
+// other switches of the same table, each true = the game's own value (default), false = forced off. Offsets from the
+// table sub_8242F4B0 builds (name at sp+N, field r31+offset at sp+N+4), read by tools in docs/alice-notes.md.
+REXCVAR_DEFINE_BOOL(alice_distortion, true, "ALICE",
+                    "UE3 Distortion, FilteredDistortion, DropParticleDistortion: the refraction / heat-haze pass "
+                    "(water surfaces, glass, particles). false = off. Read at each settings load");
+REXCVAR_DEFINE_BOOL(alice_depth_of_field, true, "ALICE", "UE3 DepthOfField. false = off. Read at each settings load");
+REXCVAR_DEFINE_BOOL(alice_bloom, true, "ALICE",
+                    "UE3 UseHighQualityBloom. false = the cheaper bloom (bloom itself stays). Read at each settings "
+                    "load");
+REXCVAR_DEFINE_BOOL(alice_lens_flares, true, "ALICE", "UE3 LensFlares. false = off. Read at each settings load");
+REXCVAR_DEFINE_BOOL(alice_fog_volumes, true, "ALICE", "UE3 FogVolumes. false = off. Read at each settings load");
 
 namespace {
 
-constexpr uint32_t kDynamicShadows = 808;           // FSystemSettingsData +0x328, UBOOL
-constexpr uint32_t kLightEnvironmentShadows = 812;  // +0x32C, UBOOL
+struct Override {
+  bool (*keep)();
+  const char *name;
+  uint32_t offset;  // FSystemSettingsData field, UBOOL
+};
+
+const Override kOverrides[] = {
+    {[] { return REXCVAR_GET(alice_shadows); }, "DynamicShadows", 0x328},
+    {[] { return REXCVAR_GET(alice_shadows); }, "LightEnvironmentShadows", 0x32C},
+    {[] { return REXCVAR_GET(alice_distortion); }, "Distortion", 0x48},
+    {[] { return REXCVAR_GET(alice_distortion); }, "FilteredDistortion", 0x4C},
+    {[] { return REXCVAR_GET(alice_distortion); }, "DropParticleDistortion", 0x50},
+    {[] { return REXCVAR_GET(alice_depth_of_field); }, "DepthOfField", 0x38},
+    {[] { return REXCVAR_GET(alice_bloom); }, "UseHighQualityBloom", 0x44},
+    {[] { return REXCVAR_GET(alice_lens_flares); }, "LensFlares", 0x54},
+    {[] { return REXCVAR_GET(alice_fog_volumes); }, "FogVolumes", 0x58},
+};
 
 uint32_t LoadBE(uint32_t va) {
   const uint8_t *p = REX_KERNEL_MEMORY()->TranslateVirtual<const uint8_t *>(va);
@@ -49,16 +76,17 @@ REX_EXTERN(__imp__sub_8242F4B0);
 extern "C" REX_FUNC(sub_8242F4B0) {
   const uint32_t data = ctx.r3.u32;
   __imp__sub_8242F4B0(ctx, base);
-  if (!data || REXCVAR_GET(alice_shadows))
+  if (!data)
     return;
-  const uint32_t dyn = LoadBE(data + kDynamicShadows);
-  const uint32_t env = LoadBE(data + kLightEnvironmentShadows);
-  StoreBE(data + kDynamicShadows, 0);
-  StoreBE(data + kLightEnvironmentShadows, 0);
   static int logged = 0;
-  if (logged < 8) {
-    ++logged;
-    REXLOG_INFO("[alice] shadows off: settings {:08X} DynamicShadows {} -> 0, LightEnvironmentShadows {} -> 0", data,
-                dyn, env);
+  for (const Override &o : kOverrides) {
+    if (o.keep())
+      continue;
+    const uint32_t was = LoadBE(data + o.offset);
+    StoreBE(data + o.offset, 0);
+    if (logged < 64) {
+      ++logged;
+      REXLOG_INFO("[alice] settings {:08X}: {} {} -> 0", data, o.name, was);
+    }
   }
 }

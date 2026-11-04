@@ -256,3 +256,35 @@ listener's time limit).
   `UseVsync = True`). So the game targets 30. 60 would need the smoothing cap raised and the present interval
   halved, and the game logic checked at a different delta time. The console doesn't hold 30 in heavy scenes yet (GPU
   45-52 ms after the rooftop load).
+
+### Fourth console run: shadows off, 720p (2026-11-03, 18:20-18:27)
+
+Log: out/nxlink.log (the third run's is kept as out/nxlink_run3.log).
+- The 8 settings loads at boot, as on the PC: DynamicShadows / LightEnvironmentShadows 1 -> 0 in 6 of them.
+- **The user: "the rooftop works great"**: no white-out. So the white-out came from the shadow passes, not from
+  the eye adaptation alone.
+- fps per 10 s: orphanage and streets 27-30 (GPU 16-34 ms); after a load (18:24:30), 16-23 fps with the GPU at
+  36-47 ms. The user asked about the water: the heavy windows are likely where the camera faces the water.
+- Clocks: the hold thread raised the CPU 71 times and the GPU 105 times in 7 minutes. The loop checked the CPU
+  before re-applying the handheld configuration (apmSetPerformanceConfiguration), which puts the CPU back to 1020,
+  so the CPU could sit at 1020 MHz for up to a second each time (windows of 25-27 fps with the GPU at 16-25 ms).
+  Fixed: the CPU check now comes after the configuration and the GPU (alice_handheld_clocks.cpp).
+
+### More SystemSettings switches (2026-11-03)
+
+The whole (name, field) table `sub_8242F4B0` builds, found by following its register values to the stack stores
+(name at sp+N, r31+offset at sp+N+4): StaticDecals +0x0C, DynamicDecals +0x10, UnbatchedDecals +0x14,
+DynamicLights +0x1C, CompositeDynamicLights +0x20, SHSecondaryLighting +0x24, DirectionalLightmaps +0x28,
+MotionBlur +0x2C, DynamicTonemapping +0x30, MotionBlurPause +0x34, DepthOfField +0x38, AmbientOcclusion +0x3C,
+Bloom +0x40, UseHighQualityBloom +0x44, Distortion +0x48, FilteredDistortion +0x4C, DropParticleDistortion +0x50,
+LensFlares +0x54, FogVolumes +0x58, FloatingPointRenderTargets +0x5C, OneFrameThreadLag +0x60, AllowD3D10 +0x6C,
+AllowRadialBlur +0x70, SpeedTreeLeaves +0x04, SpeedTreeFronds +0x08, OnlyStreamInTextures +0x2FC, UseVsync +0x30C,
+UpscaleScreenPercentage +0x314, Fullscreen +0x320, DynamicShadows +0x328 and LightEnvironmentShadows +0x32C (as
+found by hand before), bEnableBranchingPCFShadows +0x34C ... bAllowWholeSceneDominantShadows +0x360,
+bAllowFracturedDamage +0x390.
+
+New keys, each true (the game's own value) by default, false = forced off after every load: `alice_distortion`
+(Distortion, FilteredDistortion, DropParticleDistortion: the refraction pass that water uses), `alice_depth_of_field`,
+`alice_bloom` (UseHighQualityBloom only), `alice_lens_flares`, `alice_fog_volumes`. PC: all of them read 1 before
+they were zeroed, as the ini says (True). Water reflections are scene captures (USceneCaptureReflectComponent), which
+have no SystemSettings switch: not covered yet.
