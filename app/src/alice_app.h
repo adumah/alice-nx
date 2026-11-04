@@ -68,6 +68,9 @@ class AliceApp : public rex::ReXApp {
            // fewer compiles while playing (the first-use spikes).
            "alice_decals = false\n"
            "alice_motion_blur = false\n"
+           // alice-nx (2026-11-04, the user: no blur at all): radial blur and depth of field off.
+           "alice_radial_blur = false\n"
+           "alice_depth_of_field = false\n"
            "alice_composite_lights = true\n"
            "banjo_gpu_output_trim = false\n"
            "banjo_gpu_blend_skip = false\n"

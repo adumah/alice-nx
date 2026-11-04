@@ -78,6 +78,26 @@ if(ALICE_GUEST_VOLATILE AND TARGET alice_recomp)
     target_compile_definitions(alice_recomp PRIVATE REX_GUEST_VOLATILE=volatile)
 endif()
 
+# alice-nx (2026-11-04, as sa2-nx's SA2_SWITCH_LTO): link-time optimisation of the recompiled game and the app on the
+# Switch. Both are compiled to GIMPLE and optimised as one program at the link, so small game functions inline across
+# files (with tools/direct_calls.py's direct calls). The link repeats -ffp-contract=off / -fno-strict-aliasing (the
+# LTRANS stage must not fuse what the compile kept apart); xxHash without its aliasing-violating access method
+# (nfsmw-nx: garbage cache keys once inlined). Few LTRANS jobs: the build PC has 11 GB.
+if(REXGLUE_PLATFORM_SWITCH)
+    option(ALICE_SWITCH_LTO "Link-time optimisation of the game code and the app (Switch)" OFF)
+    set(ALICE_SWITCH_LTO_JOBS "2" CACHE STRING "Parallel LTRANS jobs of the Switch LTO link")
+    if(ALICE_SWITCH_LTO)
+        target_compile_definitions(alice PRIVATE XXH_FORCE_MEMORY_ACCESS=0)
+        foreach(_alice_target alice_recomp alice)
+            if(TARGET ${_alice_target})
+                target_compile_options(${_alice_target} PRIVATE -flto -fno-fat-lto-objects)
+            endif()
+        endforeach()
+        target_link_options(alice PRIVATE -flto=${ALICE_SWITCH_LTO_JOBS} -flto-partition=balanced -ffp-contract=off
+                            -fno-strict-aliasing $<$<BOOL:${ALICE_GENERATED_WRAPV}>:-fwrapv>)
+    endif()
+endif()
+
 if(REXGLUE_PLATFORM_SWITCH)
     # Where the NRO is on the SD card when no loader passes its path (an emulator): its folder holds the settings,
     # the logs, the shader caches and the game files.
