@@ -54,7 +54,8 @@ class AliceApp : public rex::ReXApp {
     return "sa2_renderer = \"renut\"\n"
            "renut_gpu_backend = \"deko3d\"\n"
            "sa2_render_height_handheld = 720\n"
-           "sa2_render_height_docked = 1080\n"
+           // alice-nx (2026-11-03, the user's request): 720p docked too (the game's own 1280x720, upscaled to the TV).
+           "sa2_render_height_docked = 720\n"
            "asset_pack = true\n"
            "asset_pack_build = true\n"
            "log_level = \"info\"\n"

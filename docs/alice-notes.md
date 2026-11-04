@@ -232,3 +232,27 @@ listener's time limit).
   and the tonemap. Next: reproduce on PC (Renut, Vulkan) from the console's checkpoint save
   (`sdmc:/switch/alice-nx/alice/B13EBABEBABEBABE/45410916/00000001/Alice2Checkpoint.sav`, the same layout as
   `~/.local/share/alice/...` on PC).
+
+### 720p in both modes, shadows off (2026-11-03, the user's request)
+
+- **720p:** handheld already rendered at 1280x720. Docked rendered at `sa2_render_height_docked = 1080` (set in
+  `BuiltInConfig`, `app/src/alice_app.h`, and the cvar's default in `app/src/me/sa2_render_mode.cpp`). Both are 720
+  now: the game's own 1280x720 in both modes. Docked, the swapchain stays at the TV's size and the picture is scaled
+  up. An `alice.toml` on the SD can still set it back.
+- **Shadows:** UE3's `[SystemSettings]` in Xe-AliceEngine.ini (Coalesced_INT.bin) has `DynamicShadows = True` and
+  `LightEnvironmentShadows = True`. `sub_8242F4B0` loads one SystemSettings section into an FSystemSettingsData
+  (r3). It first builds (name, field) pairs on its stack: L"DynamicShadows" (820C5F54, stored at sp+384 by
+  8242F530) with r31+808 (sp+388, 8242F55C), and L"LightEnvironmentShadows" (820C5F74, sp+392) with r31+812
+  (sp+396). It has 5 callers (82430CBC, 82430E18, 82430ED0, 8243175C, 82432964; sections L"SystemSettings" 820C3C2C
+  and L"SystemSettingsEditor" 820C3C00). `app/src/alice_settings.cpp` overrides it: after the original, +808 and
+  +812 are 0 unless `alice_shadows = true`. The disc files are unchanged.
+- **PC check, Renut/Vulkan, the same input script, shots at 130/160/190 s (the orphanage corridor):** 8 loads
+  logged at boot (6 with both values at 1, now 0; 2 already 0). With shadows on: 32,792 draws/s, GPU 5.3 ms a frame,
+  render thread 4.9 ms. Off: 30,595 draws/s (−6.7 %), GPU 4.6 ms (−14 %), render thread 5.0 ms. 30.00 fps in both
+  (the PC is not the limit). The pictures differ only by Alice's shadow on the floor and its contact darkening.
+  Not yet on the console.
+- **The frame rate cap:** Xe-AliceEngine.ini `[Engine.Engine]` has `bSmoothFrameRate = TRUE`,
+  `MinSmoothedFrameRate = 22`, `MaxSmoothedFrameRate = 31` (and `[Engine.GameEngine] MaxSmoothedFrameRate = 58`;
+  `UseVsync = True`). So the game targets 30. 60 would need the smoothing cap raised and the present interval
+  halved, and the game logic checked at a different delta time. The console doesn't hold 30 in heavy scenes yet (GPU
+  45-52 ms after the rooftop load).

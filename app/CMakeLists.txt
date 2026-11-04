@@ -15,6 +15,7 @@ set(ALICE_SOURCES
     src/main.cpp
     src/alice_screenshot.cpp
     src/alice_shm.cpp
+    src/alice_settings.cpp
 )
 
 # Diagnostic sources added for one build only, e.g. the Direct3D census (tools/d3d/census_build.py). Empty normally.

@@ -26,7 +26,7 @@ REXCVAR_DEFINE_INT32(sa2_render_height_handheld, 720, "SA2",
                      "the width follows at 16:9")
     .range(180, 4320)
     .lifecycle(rex::cvar::Lifecycle::kHotReload);
-REXCVAR_DEFINE_INT32(sa2_render_height_docked, 1080, "SA2",
+REXCVAR_DEFINE_INT32(sa2_render_height_docked, 720, "SA2",
                      "Render height in docked mode (the TV): 1080 = 1920x1080. Any multiple of 180 from 360 to "
                      "2160; switching between docked and handheld changes it at the next frame")
     .range(180, 4320)
