@@ -331,3 +331,38 @@ its console profile showed the main thread waiting a quarter of its samples on t
   sends as a cause of long frames (mk9-nx: test hitches without log_network), MadnessPatch's
   bUseBackgroundLevelStreaming = 0 (an [Engine.Engine] config property: needs a config-lookup hook like
   masseffect-nx's ini override), its high-fps fixes (movement, camera, PhysX, cloth/hair: the 60 fps key needs them).
+
+### The optimised codegen on the console: a glitched picture, bisecting (2026-11-03 evening)
+
+- Sixth console run (out/alice_optimised_a.nro, stage A + the three post steps; log out/nxlink_opt_glitch.log):
+  runs a bit faster (gameplay 21-30 fps, GPU 20-45 ms), but **the user: Alice's body and every texture glitched**
+  (her eyes and hair fine). The PC build of the same tree (clang, x86) was right (shots at 130/160/190 s).
+- Seventh run (out/alice_opt_volatile.nro: the same with `-DREX_GUEST_VOLATILE=volatile`, CMake option
+  ALICE_GUEST_VOLATILE): **the same glitch**. So not the no-volatile pch.
+- Ruled out by reading: the direct calls (the Switch ELF has 25 strong hooks, sub_X at another address than
+  __imp__sub_X; none of them is called directly by the generated code); the physical-window offset of the D-form
+  macros (0 on the Switch); strict aliasing (-fno-strict-aliasing is on the generated code); the lwsync/sync
+  translation (atomic fences, both flavours); the pch diff (the classic pch already had dform_disp_split; stage A adds
+  only REX_CONFIG_{CR,CTR,XER,RESERVED}_AS_LOCAL and SKIP_MSR). skip_msr by reading: 617 lock sections in the classic
+  code, all single lwarx/stwcx. (or ldarx/stdcx.) updates except sub_82FF8410 (InterlockedPushEntrySList: its one
+  plain store is the new entry's own link, before the 64-bit CAS); the optimised form of it is right. Not set:
+  -fwrapv (neither does sa2-nx).
+- Eighth build (in progress): the classic code with skip_msr alone (codegen_flavor.toml: `skip_msr = true` and
+  `# alice_post_steps = false`, which tools/post_codegen.py reads: no pch rewrite, no barriers, no direct calls).
+  Right picture -> skip_msr stays (mk9-nx's big gain), and the cr/ctr/xer/reserved locals and the post steps are
+  tested next one at a time; glitched -> skip_msr is the cause.
+
+### skip_msr alone is right on the console; 480p and the draw-count switches (2026-11-03 night)
+
+- Eighth console run (out/alice_skipmsr.nro, log out/nxlink_skipmsr.log): **the user: "looks good now"**. So
+  skip_msr is innocent; the glitch is in the cr/ctr/xer/reserved locals or the post steps (direct calls, barriers),
+  still to split. 22 gameplay windows: 25.8 fps on average, 16 under 27; heavy windows GPU-bound (31-43 ms).
+- Ninth run, the same NRO with `--alice_screen_percentage=66.7` (854x480 scene; log out/nxlink_480p.log): the user
+  "it improved well"; the GPU fell to ~21 ms in the heavy windows. The slow windows left are CPU-bound by the draw
+  count: 17.4 fps at ~2,060 draws a frame (36,000 a second), the game thread 57 ms Swap to Swap, the render thread
+  18.5 ms a frame, the GPU 25 ms.
+- Tenth run, plus `--alice_particle_lod_bias=1 --alice_distortion=false`: 20-30 fps; the slow windows have the most
+  draws (~1,650 a frame at 20 fps against ~750 at 30), the GPU 21-28 ms.
+- New switches (alice_settings.cpp, a float and an int table besides the UBOOLs): alice_decals (StaticDecals +0x0C,
+  DynamicDecals +0x10, UnbatchedDecals +0x14), alice_decal_distance (DecalCullDistanceScale +0x18),
+  alice_foliage_distance (FoliageDrawRadiusMultiplier +0x308), alice_skeletal_lod_bias (SkeletalMeshLODBias +0x64).

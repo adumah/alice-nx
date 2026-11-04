@@ -44,6 +44,26 @@ REXCVAR_DEFINE_DOUBLE(alice_screen_percentage, 0.0, "ALICE",
                       "UE3 ScreenPercentage: the scene's render size in % of 1280x720, scaled up by the game "
                       "(75 = 960x540). 0 = the game's own (100). Read at each settings load")
     .range(0.0, 100.0);
+// alice-nx (2026-11-03, the user: "change render distance to lower"): this UE3 has no global draw distance (each
+// primitive keeps its own), so the draw-count levers of the same table. Decals: StaticDecals +0x0C, DynamicDecals
+// +0x10, UnbatchedDecals +0x14 (UBOOL); DecalCullDistanceScale +0x18 and FoliageDrawRadiusMultiplier +0x308 (float);
+// SkeletalMeshLODBias +0x64 (int). The fifth console run's slow windows were the ones with the most draws (~1,650 a
+// frame at 20 fps against ~750 at 30) with the GPU under its budget (21-28 ms).
+REXCVAR_DEFINE_BOOL(alice_decals, true, "ALICE",
+                    "UE3 StaticDecals, DynamicDecals, UnbatchedDecals (blood, cracks, dirt drawn over surfaces). "
+                    "false = off. Read at each settings load");
+REXCVAR_DEFINE_DOUBLE(alice_decal_distance, 0.0, "ALICE",
+                      "UE3 DecalCullDistanceScale: how far decals are drawn, as a share of the game's (0.5 = half). "
+                      "0 = the game's own (1.0). Read at each settings load")
+    .range(0.0, 1.0);
+REXCVAR_DEFINE_DOUBLE(alice_foliage_distance, 0.0, "ALICE",
+                      "UE3 FoliageDrawRadiusMultiplier: how far foliage is drawn, as a share of the game's (0.5 = "
+                      "half). 0 = the game's own (1.0). Read at each settings load")
+    .range(0.0, 1.0);
+REXCVAR_DEFINE_INT32(alice_skeletal_lod_bias, -1, "ALICE",
+                     "UE3 SkeletalMeshLODBias: 1, 2, ... = cheaper character and creature models; -1 = the game's "
+                     "own (0). Read at each settings load")
+    .range(-1, 4);
 REXCVAR_DEFINE_INT32(alice_particle_lod_bias, -1, "ALICE",
                      "UE3 ParticleLODBias: 1, 2, ... = cheaper particle LODs; -1 = the game's own (0). Read at each "
                      "settings load")
@@ -67,6 +87,32 @@ const Override kOverrides[] = {
     {[] { return REXCVAR_GET(alice_bloom); }, "UseHighQualityBloom", 0x44},
     {[] { return REXCVAR_GET(alice_lens_flares); }, "LensFlares", 0x54},
     {[] { return REXCVAR_GET(alice_fog_volumes); }, "FogVolumes", 0x58},
+    {[] { return REXCVAR_GET(alice_decals); }, "StaticDecals", 0x0C},
+    {[] { return REXCVAR_GET(alice_decals); }, "DynamicDecals", 0x10},
+    {[] { return REXCVAR_GET(alice_decals); }, "UnbatchedDecals", 0x14},
+};
+
+// A float setting: set to 'value' when 'value' > 0.
+struct FloatOverride {
+  double (*value)();
+  const char *name;
+  uint32_t offset;
+};
+const FloatOverride kFloatOverrides[] = {
+    {[] { return REXCVAR_GET(alice_screen_percentage); }, "ScreenPercentage", 0x310},
+    {[] { return REXCVAR_GET(alice_decal_distance); }, "DecalCullDistanceScale", 0x18},
+    {[] { return REXCVAR_GET(alice_foliage_distance); }, "FoliageDrawRadiusMultiplier", 0x308},
+};
+
+// An integer setting: set to 'value' when 'value' >= 0.
+struct IntOverride {
+  int32_t (*value)();
+  const char *name;
+  uint32_t offset;
+};
+const IntOverride kIntOverrides[] = {
+    {[] { return REXCVAR_GET(alice_particle_lod_bias); }, "ParticleLODBias", 0x68},
+    {[] { return REXCVAR_GET(alice_skeletal_lod_bias); }, "SkeletalMeshLODBias", 0x64},
 };
 
 uint32_t LoadBE(uint32_t va) {
@@ -92,25 +138,31 @@ extern "C" REX_FUNC(sub_8242F4B0) {
   if (!data)
     return;
   static int logged = 0;
-  if (const double pct = REXCVAR_GET(alice_screen_percentage); pct > 0.0) {
-    const float f = float(pct);
-    uint32_t bits;
+  for (const FloatOverride &o : kFloatOverrides) {
+    const double v = o.value();
+    if (v <= 0.0)
+      continue;
+    const float f = float(v);
+    uint32_t bits, was;
     std::memcpy(&bits, &f, 4);
-    const uint32_t was = LoadBE(data + 0x310);
-    StoreBE(data + 0x310, bits);
+    was = LoadBE(data + o.offset);
+    StoreBE(data + o.offset, bits);
     if (logged < 64) {
       ++logged;
       float old;
       std::memcpy(&old, &was, 4);
-      REXLOG_INFO("[alice] settings {:08X}: ScreenPercentage {} -> {}", data, old, f);
+      REXLOG_INFO("[alice] settings {:08X}: {} {} -> {}", data, o.name, old, f);
     }
   }
-  if (const int32_t bias = REXCVAR_GET(alice_particle_lod_bias); bias >= 0) {
-    const uint32_t was = LoadBE(data + 0x68);
-    StoreBE(data + 0x68, uint32_t(bias));
+  for (const IntOverride &o : kIntOverrides) {
+    const int32_t v = o.value();
+    if (v < 0)
+      continue;
+    const uint32_t was = LoadBE(data + o.offset);
+    StoreBE(data + o.offset, uint32_t(v));
     if (logged < 64) {
       ++logged;
-      REXLOG_INFO("[alice] settings {:08X}: ParticleLODBias {} -> {}", data, int32_t(was), bias);
+      REXLOG_INFO("[alice] settings {:08X}: {} {} -> {}", data, o.name, int32_t(was), v);
     }
   }
   for (const Override &o : kOverrides) {

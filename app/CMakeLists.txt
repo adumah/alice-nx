@@ -64,6 +64,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         endif()
     endforeach()
 endif()
+# alice-nx (2026-11-03): bisecting the optimised flavour's glitched picture on the console (fifth console run,
+# docs/alice-notes.md). ON compiles the generated code with volatile guest loads/stores again (REX_GUEST_VOLATILE,
+# tools/pch_no_volatile.py), everything else of the flavour kept.
+option(ALICE_GUEST_VOLATILE "Generated code: volatile guest memory accesses (bisect)" OFF)
+if(ALICE_GUEST_VOLATILE AND TARGET alice_recomp)
+    target_compile_definitions(alice_recomp PRIVATE REX_GUEST_VOLATILE=volatile)
+endif()
 
 if(REXGLUE_PLATFORM_SWITCH)
     # Where the NRO is on the SD card when no loader passes its path (an emulator): its folder holds the settings,

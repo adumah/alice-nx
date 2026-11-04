@@ -10,11 +10,12 @@ in, so two builds can be compared.
   python tools/find_self_loops.py out/nx/sa2.elf [another.elf]   (from futari-nx)
 """
 import bisect
+import os
 import struct
 import subprocess
 import sys
 
-NM = r'C:\devkitPro\devkitA64\bin\aarch64-none-elf-nm.exe'
+NM = os.path.join(os.environ.get('DEVKITPRO', '/opt/devkitpro'), 'devkitA64', 'bin', 'aarch64-none-elf-nm')
 
 
 def sections(path):

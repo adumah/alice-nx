@@ -30,15 +30,23 @@ def main():
     flavor_toml = open(os.path.join(APP, 'codegen_flavor.toml'), encoding='utf-8').read()
     optimised = re.search(r'^\s*[a-z_]+\s*=\s*true', flavor_toml, re.M) is not None
     flavor = 'optimised' if optimised else 'classic'
+    # alice-nx (2026-11-03, bisecting the console's glitched picture): '# alice_post_steps = false' in the flavour
+    # file keeps the generator options but skips the post-codegen rewrites (no-volatile pch, loop barriers, direct
+    # calls).
+    post_steps = re.search(r'^#\s*alice_post_steps\s*=\s*false', flavor_toml, re.M) is None
+    if optimised and not post_steps:
+        flavor = 'optimised codegen without post steps:'
+        flavor += ' ' + ', '.join(re.findall(r'^\s*([a-z_]+)\s*=\s*true', flavor_toml, re.M))
+        flavor = flavor.replace(' codegen without', ' without')
     tools = os.path.join(ROOT, 'tools')
     gen = os.path.join(GEN, 'default')
-    if optimised:
+    if optimised and post_steps:
         run(os.path.join(tools, 'pch_no_volatile.py'), os.path.join(gen, 'alice_pch.h'))
         # REQUIRED with the line above: without barriers GCC turns guest polling loops into infinite loops.
         run(os.path.join(tools, 'loop_barriers.py'), gen)
         os.environ.setdefault('REXSDK_DIR', os.path.join(ROOT, '..', 'sa2-nx', 'sdk'))
         run(os.path.join(tools, 'direct_calls.py'), '--redo', '--gen', gen)
-    text = f'{flavor} codegen'
+    text = flavor if not post_steps and optimised else f'{flavor} codegen'
     path = os.path.join(GEN, 'codegen_flavor.txt')
     try:
         old_text = open(path, encoding='utf-8').read()
