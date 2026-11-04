@@ -13,6 +13,7 @@
 // WHY: the user asked for shadows off (2026-11-03), for frame rate; the shadow depth passes are GPU work in every
 // scene with a dynamic light. NOT EXACT: the picture changes (no dynamic shadows), by design.
 #include <cstdint>
+#include <cstring>
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -35,6 +36,18 @@ REXCVAR_DEFINE_BOOL(alice_bloom, true, "ALICE",
                     "load");
 REXCVAR_DEFINE_BOOL(alice_lens_flares, true, "ALICE", "UE3 LensFlares. false = off. Read at each settings load");
 REXCVAR_DEFINE_BOOL(alice_fog_volumes, true, "ALICE", "UE3 FogVolumes. false = off. Read at each settings load");
+// alice-nx (2026-11-03): numeric settings of the same table. ScreenPercentage +0x310 (float; the ini's 100.0, with
+// UpscaleScreenPercentage = True the game renders the scene at that share of 1280x720 and scales it up: masseffect-nx
+// got its GPU-bound scenes from 10-14 to 15-17 fps at 960x544 by a smaller guest video mode). ParticleLODBias +0x68
+// (int, the ini's 0: higher picks the particle systems' cheaper LODs, the user's "cascade" lag).
+REXCVAR_DEFINE_DOUBLE(alice_screen_percentage, 0.0, "ALICE",
+                      "UE3 ScreenPercentage: the scene's render size in % of 1280x720, scaled up by the game "
+                      "(75 = 960x540). 0 = the game's own (100). Read at each settings load")
+    .range(0.0, 100.0);
+REXCVAR_DEFINE_INT32(alice_particle_lod_bias, -1, "ALICE",
+                     "UE3 ParticleLODBias: 1, 2, ... = cheaper particle LODs; -1 = the game's own (0). Read at each "
+                     "settings load")
+    .range(-1, 8);
 
 namespace {
 
@@ -79,6 +92,27 @@ extern "C" REX_FUNC(sub_8242F4B0) {
   if (!data)
     return;
   static int logged = 0;
+  if (const double pct = REXCVAR_GET(alice_screen_percentage); pct > 0.0) {
+    const float f = float(pct);
+    uint32_t bits;
+    std::memcpy(&bits, &f, 4);
+    const uint32_t was = LoadBE(data + 0x310);
+    StoreBE(data + 0x310, bits);
+    if (logged < 64) {
+      ++logged;
+      float old;
+      std::memcpy(&old, &was, 4);
+      REXLOG_INFO("[alice] settings {:08X}: ScreenPercentage {} -> {}", data, old, f);
+    }
+  }
+  if (const int32_t bias = REXCVAR_GET(alice_particle_lod_bias); bias >= 0) {
+    const uint32_t was = LoadBE(data + 0x68);
+    StoreBE(data + 0x68, uint32_t(bias));
+    if (logged < 64) {
+      ++logged;
+      REXLOG_INFO("[alice] settings {:08X}: ParticleLODBias {} -> {}", data, int32_t(was), bias);
+    }
+  }
   for (const Override &o : kOverrides) {
     if (o.keep())
       continue;

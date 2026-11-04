@@ -1,0 +1,25 @@
+# alice-nx (2026-11-03): the "optimised codegen" flavour, stage A. tools/codegen.sh --flavor optimised copies this file to
+# codegen_flavor.toml (included by alice_manifest.toml); --flavor classic writes an empty one. Root keys: they must
+# stay outside any table. Build-time.
+#
+# Why: mk9-nx (UE3 2011, the same sa2-nx SDK) measured its fights 11 -> 47-54 fps on the Switch with exactly this stage
+# (docs/mk9-notes.md there, "Optimised codegen"): its console profile showed the main thread waiting a quarter of its
+# samples on the classic code's global lock (mtmsrd r13 -> REX_ENTER_GLOBAL_LOCK) against UE3's worker threads.
+# sa2-nx's perf_overrides.toml (from masseffect-nx), the options that need no per-function audit; they only change how
+# the C++ is written, the guest-visible result is the same:
+#   - cr0-cr7, ctr, xer and the lwarx reservation as C++ locals;
+#   - skip_msr: no mfmsr/mtmsrd fences, ctx.msr stores or global lock around the guest's interrupt-off sequences (a
+#     stwcx. is already a compare-and-swap; on the Xbox 360 an interrupt-off section only holds its own core);
+#   - dform_disp_split, fctiwz_inline, fp_moves_modeless.
+# Post-codegen steps (tools/post_codegen.py): guest loads/stores without volatile (tools/pch_no_volatile.py) with
+# compiler barriers at loop headers (tools/loop_barriers.py, REQUIRED with it) and direct calls to unhooked functions
+# (tools/direct_calls.py).
+# Not yet (stage B, needs tools/read_before_write.py's audit first): non_volatile_as_local, elide_lr_stores.
+cr_as_local = true
+ctr_as_local = true
+xer_as_local = true
+reserved_as_local = true
+skip_msr = true
+dform_disp_split = true
+fctiwz_inline = true
+fp_moves_modeless = true

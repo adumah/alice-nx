@@ -11,6 +11,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(generated/rexglue.cmake)
 
+# alice-nx (2026-11-03, as sa2-nx): the build re-runs the generator by itself whenever an input in codegen.d changes,
+# which rewrites app/generated and would silently drop the codegen flavour's post-codegen steps (no-volatile pch, loop
+# barriers, direct calls): they are appended to the same command. The Switch cross build has no generator target.
+if(TARGET alice_codegen)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/generated/default/codegen.build.stamp" APPEND
+        COMMAND "${CMAKE_COMMAND}" -E env "REXSDK_DIR=${REXSDK_DIR}"
+                "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/post_codegen.py")
+endif()
+# The flavour's name in the first "[enh]" log line (tools/post_codegen.py writes the file).
+set(ALICE_FLAVOR_FILE "${CMAKE_CURRENT_SOURCE_DIR}/generated/codegen_flavor.txt")
+if(EXISTS "${ALICE_FLAVOR_FILE}")
+    file(READ "${ALICE_FLAVOR_FILE}" ALICE_FLAVOR)
+    string(STRIP "${ALICE_FLAVOR}" ALICE_FLAVOR)
+    add_compile_definitions("SA2_BUILD_FLAVOR=\"${ALICE_FLAVOR}\"")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ALICE_FLAVOR_FILE}")
+endif()
+
 set(ALICE_SOURCES
     src/main.cpp
     src/alice_screenshot.cpp

@@ -310,3 +310,24 @@ reproduced.)
 - Movies and menu 29.5 fps (GPU 2.5 ms); the first 3D scene 29.5 (GPU 12-31 ms).
 - Gameplay: 8.6-18.7 fps, GPU 48-101 ms a frame; the last minute 16.8 fps at GPU 59 ms, render thread ~8 ms. So at
   stock it is GPU-bound throughout, about 2-3x the GPU time of the held 768 MHz runs.
+
+### The optimised codegen, stage A (2026-11-03)
+
+Why: mk9-nx (UE3 2011, the same sa2-nx SDK) measured its fights 11 -> 47-54 fps on the Switch with this stage alone;
+its console profile showed the main thread waiting a quarter of its samples on the classic code's global lock
+(mtmsrd r13 -> REX_ENTER_GLOBAL_LOCK) against UE3's worker threads. Alice ran the classic code until now.
+- `app/perf_overrides.toml` (stage A: cr/ctr/xer/reservation as locals, skip_msr, dform_disp_split, fctiwz_inline,
+  fp_moves_modeless), `app/codegen_flavor.toml` (included by alice_manifest.toml), `tools/codegen.sh --flavor`,
+  `tools/post_codegen.py` (pch_no_volatile, loop_barriers, direct_calls from sa2-nx; appended to the build's own
+  generator command in app/CMakeLists.txt). The flavour's name goes into the first `[enh]` log line.
+- Codegen 356 s: 16 pch macros without volatile; 34,734 loop headers, 25,188 with a barrier; 182,811 direct calls,
+  456 hooked addresses respected (every BANJO_RENUT_HOOK* and alice_settings.cpp's sub_8242F4B0).
+- PC (Renut/Vulkan, the same input script): 30.00 fps, the same screens at 130/160/190 s as the classic build (mean
+  pixel difference 0.1-1.5 of 255: animation timing). The classic tree is kept in out/generated_classic, its NRO in
+  out/alice_classic.nro.
+- Not yet: stage B (non_volatile_as_local + elide_lr_stores; needs tools/read_before_write.py on the code generated
+  with it: mk9-nx's first build without that crashed at boot), ro_constants / float_loads / cold traps, LTO.
+- Other ports' tips noted for later: kernel_critsec_spin = 1024 (mk9-nx +1 %, a run-time key), the network log's
+  sends as a cause of long frames (mk9-nx: test hitches without log_network), MadnessPatch's
+  bUseBackgroundLevelStreaming = 0 (an [Engine.Engine] config property: needs a config-lookup hook like
+  masseffect-nx's ini override), its high-fps fixes (movement, camera, PhysX, cloth/hair: the 60 fps key needs them).
