@@ -82,6 +82,12 @@ struct PipelineKey {
   // alpha_test_func; 8 = always, the test off), the pixel shader's specialization constant 903 (tools/deko3d_glsl_opt.py,
   // pass alpha); 0 = read at run time. Like the bools: a key with it not built yet draws with the generic one (0).
   uint32_t alpha_func;
+  // alice-nx (2026-11-04, the user's z-fighting on the Shrink sense's wall drawings): the polygon offset (D3D's
+  // SlopeScaleDepthBias / DepthBias) as the device's PA_SU_POLY_OFFSET_*_SCALE / _OFFSET float bits, front or back
+  // as enabled in PA_SU_SC_MODE_CNTL bits 11/12; 0 / 0 = none. Renut never applied it: every decal was drawn at
+  // exactly its wall's depth.
+  uint32_t poly_offset_scale;
+  uint32_t poly_offset_offset;
   uint32_t reserved;  // 0 (the key is compared and hashed as bytes)
 };
 
@@ -106,6 +112,10 @@ struct PipelineInputs {
 // Built pipeline for the key, compiling it on first use unless the pipeline
 // list (below) built it ahead. nullptr on failure (logged once per key).
 plume::RenderPipeline *GetPipelineLocked(const PipelineKey &key, const PipelineInputs &inputs);
+// alice-nx (2026-11-04): whether the polygon offset is applied (alice_depth_bias), and a one-time log of the first
+// distinct offsets drawn (PipelineKey::poly_offset_*).
+bool AliceDepthBiasOn();
+void NoteAliceDepthBias(uint32_t mode_control, uint32_t scale_bits, uint32_t offset_bits);
 // sa2-nx (2026-10-20, sa2_renut_chain_reuse): GetPipelineLocked's calls so far, and the prebuild epoch.
 uint64_t PipelineLookupsLocked();
 uint64_t PrebuildEpochLocked();

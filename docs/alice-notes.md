@@ -384,3 +384,21 @@ its console profile showed the main thread waiting a quarter of its samples on t
   back on (the sense effect may draw through it).
 - Atmosphere crashed twice right after a send, before the intro movie (18:42 stock-clock run; 23:0x run without
   log_network); the next send each time ran. The SD log (logs/ next to the NRO) not read yet.
+
+### Depth bias: Renut never applied it (2026-11-04)
+
+- The user, with the Shrink sense: the hidden purple drawings on the walls z-fight, also with distortion back on
+  (twelfth console run, 720p: 26.6 fps on average over 20 windows, the GPU over 33 ms in 9; the user chose 480p).
+- Cause: nothing in Renut sets a depth bias (no setDepthBias call, no depthBias in any pipeline desc), so the game's
+  DepthBias / SlopeScaleDepthBias (decals, overlays) was dropped and every decal drew at its wall's depth.
+- Fix: MakeKey (draw.cpp) takes PA_SU_POLY_OFFSET_FRONT/BACK_SCALE/_OFFSET from device +0x2A50-0x2A5C (m_PointPacket)
+  when PA_SU_SC_MODE_CNTL bit 11 or 12 enables them, into PipelineKey::poly_offset_scale / _offset; Build
+  (pipeline.cpp) sets desc.depthBias = offset x 2^24 (D3D9's depth units to steps of a 24-bit target, as Xenia's
+  unorm24 factor) and slopeScaledDepthBias = scale / 16 (the native SetRenderState stores it x16). Chain reuse now
+  also checks bytes 0x2A50-0x2A5F (it compared only 10112-10599, so a decal right after its wall would have kept
+  the wall's key). Key: alice_depth_bias (default true). The pipeline list file starts over (its key size changed).
+- PC (Renut/Vulkan, the input script): one bias seen in the orphanage: `mode control 00019802, slope scale -0,
+  offset 6e-05` (both enables set); 30.00 fps; the shots at 130/160/190 s the same scenes as before. Not yet on the
+  console, where the drawings are.
+- Defaults on the Switch now (BuiltInConfig): alice_screen_percentage 66.7, alice_particle_lod_bias 1,
+  alice_foliage_distance 0.5, kernel_critsec_spin 1024 (the user's choice after the runs above).

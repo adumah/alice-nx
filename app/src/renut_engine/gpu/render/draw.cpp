@@ -3039,6 +3039,20 @@ PipelineKey MakeKey(const GuestDevice &device, const ShaderRecord *vs, const Sha
   key.stencil_ref_mask = t.depth ? u32(dev.m_ValuesPacket.StencilRefMask) & 0xFFFFFF : 0;
   key.stencil_ref_mask_bf = t.depth ? u32(dev.m_ValuesPacket.StencilRefMaskBF) & 0xFFFFFF : 0;
   key.mode_control = u32(cp.ModeControl) & 0x7;
+  // alice-nx (2026-11-04): the polygon offset (pipeline.h, PipelineKey::poly_offset_*). The device keeps
+  // PA_SU_POLY_OFFSET_FRONT_SCALE, _FRONT_OFFSET, _BACK_SCALE, _BACK_OFFSET at +0x2A50-0x2A5C (m_PointPacket; the
+  // native SetRenderState_SlopeScaleDepthBias / _DepthBias write them there with the enables in ModeControl bits 11
+  // and 12, d3d_native_state.cpp).
+  if (t.depth && AliceDepthBiasOn()) {
+    const u32 mc = u32(cp.ModeControl);
+    if (mc & (3u << 11)) {
+      const auto *po = reinterpret_cast<const be_u32 *>(dev.m_PointPacket);
+      const bool front = (mc >> 11) & 1;
+      key.poly_offset_scale = front ? u32(po[0]) : u32(po[2]);
+      key.poly_offset_offset = front ? u32(po[1]) : u32(po[3]);
+      NoteAliceDepthBias(mc, key.poly_offset_scale, key.poly_offset_offset);
+    }
+  }
   key.alpha_to_coverage = (u32(cp.ColorControl) >> 4) & 1;
   if (primitive == kRectangleList) {
     if (State().rectangle_list_gs)
@@ -4590,7 +4604,9 @@ bool DrawStateLocked(const u8 *device_state, const DrawCall &call, const ReplayC
   const ShaderCacheEntry *const ps_entry = ps ? ps->entry : nullptr;
   const int ab_off = banjo::renut_gpu::g_ab_off.load(std::memory_order_relaxed);
   const uint64_t surface_epoch = SurfaceEpochLocked();
+  // alice-nx (2026-11-04): and the polygon offset (bytes 0x2A50-0x2A5F, PipelineKey::poly_offset_*): MakeKey reads it.
   bool reused = reuse_on && hint.seq && hint.seq == reuse.seq + 1 && !ChainChanged(hint, 10112, 10599) &&
+                !ChainChanged(hint, 0x2A50, 0x2A5F) &&
                 reuse.vs_entry == vs->entry && reuse.ps_entry == ps_entry &&
                 reuse.layout_hash == declaration->layout_hash && reuse.primitive == call.primitive &&
                 reuse.per_instance == geometry.per_instance && reuse.alpha_test_func == sc.alpha_test_func &&

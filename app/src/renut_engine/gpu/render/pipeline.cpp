@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <atomic>
 #include <bit>
+#include <cmath>
 #include <condition_variable>
 #include <cstring>
 #include <deque>
@@ -55,6 +56,13 @@ REXCVAR_DEFINE_BOOL(banjo_deko3d_variant_log, false, "Banjo/Renut",
 #include "renut_engine/gpu/guest/resources.h"
 #include "renut_engine/gpu/render/shader_library.h"
 #include "renut_engine/gpu/banjo_renut_tuning.h"
+
+// alice-nx (2026-11-04): the polygon offset (D3D's DepthBias / SlopeScaleDepthBias), which Renut did not apply:
+// decals z-fought their walls (the user, the Shrink sense's wall drawings).
+REXCVAR_DEFINE_BOOL(alice_depth_bias, true, "ALICE",
+                    "Renut: apply the game's depth bias (DepthBias / SlopeScaleDepthBias: decals and overlays drawn "
+                    "just in front of their surface). false = none, as before (z-fighting). Read at start")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_STRING(renut_pipeline_list, "pipeline_list.bin", "Nuts&Bolts/Graphics",
                       "The pipelines the renderer has built, which it builds ahead of use at the "
@@ -271,6 +279,28 @@ uint32_t OutputTrimMask(const PipelineKey &key) {
   return trim;
 }
 
+bool AliceDepthBiasOn() {
+  static const bool on = REXCVAR_GET(alice_depth_bias);
+  return on;
+}
+
+void NoteAliceDepthBias(uint32_t mode_control, uint32_t scale_bits, uint32_t offset_bits) {
+  static std::mutex m;
+  static uint64_t seen[8] = {};
+  static uint32_t count = 0;
+  const uint64_t pair = uint64_t(scale_bits) << 32 | offset_bits;
+  std::lock_guard<std::mutex> lock(m);
+  if (count >= 8)
+    return;
+  for (uint32_t i = 0; i < count; ++i)
+    if (seen[i] == pair)
+      return;
+  seen[count++] = pair;
+  RGPU_INFO("[alice] depth bias {}: mode control {:08X}, slope scale {} (D3D {}), offset {}", count, mode_control,
+            std::bit_cast<float>(scale_bits), std::bit_cast<float>(scale_bits) / 16.0f,
+            std::bit_cast<float>(offset_bits));
+}
+
 namespace {
 
 // Any thread: reads only what device creation set up.
@@ -329,6 +359,15 @@ std::unique_ptr<plume::RenderPipeline> Build(const PipelineKey &key, const Pipel
     } else {
       desc.stencilBackFace = desc.stencilFrontFace;
     }
+  }
+  // alice-nx (2026-11-04): the polygon offset. The device's offset is D3D9's DepthBias, in depth units: a constant
+  // factor in units of the target's smallest step, 2^-24 for 24-bit depth (and for a float depth near 1), as Xenia's
+  // D3D10 polygon offset factor for unorm24. Its scale is SlopeScaleDepthBias times 16 (subpixel units, the native
+  // SetRenderState): the slope factor is the D3D value again.
+  if (key.depth_format != plume::RenderFormat::UNKNOWN && (key.poly_offset_scale || key.poly_offset_offset)) {
+    const float offset = std::bit_cast<float>(key.poly_offset_offset);
+    desc.depthBias = int32_t(std::lround(double(offset) * 16777216.0));
+    desc.slopeScaledDepthBias = std::bit_cast<float>(key.poly_offset_scale) / 16.0f;
   }
   desc.depthTargetFormat = key.depth_format;
 

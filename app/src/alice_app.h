@@ -56,6 +56,13 @@ class AliceApp : public rex::ReXApp {
            "sa2_render_height_handheld = 720\n"
            // alice-nx (2026-11-03, the user's request): 720p docked too (the game's own 1280x720, upscaled to the TV).
            "sa2_render_height_docked = 720\n"
+           // alice-nx (2026-11-04, the user's choice after the console runs, docs/alice-notes.md): the 3D scene at
+           // 480p (the HUD stays 720p), cheaper particle LODs, foliage to half its distance, critical sections spin
+           // before they wait (mk9-nx +1 %).
+           "alice_screen_percentage = 66.7\n"
+           "alice_particle_lod_bias = 1\n"
+           "alice_foliage_distance = 0.5\n"
+           "kernel_critsec_spin = 1024\n"
            "asset_pack = true\n"
            "asset_pack_build = true\n"
            "log_level = \"info\"\n"
