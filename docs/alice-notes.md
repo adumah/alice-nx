@@ -366,3 +366,21 @@ its console profile showed the main thread waiting a quarter of its samples on t
 - New switches (alice_settings.cpp, a float and an int table besides the UBOOLs): alice_decals (StaticDecals +0x0C,
   DynamicDecals +0x10, UnbatchedDecals +0x14), alice_decal_distance (DecalCullDistanceScale +0x18),
   alice_foliage_distance (FoliageDrawRadiusMultiplier +0x308), alice_skeletal_lod_bias (SkeletalMeshLODBias +0x64).
+
+### skip_msr + the register locals: right, and faster (2026-11-04)
+
+- Eleventh console run (out/alice_locals.nro: skip_msr, cr/ctr/xer/reserved_as_local, no post steps; settings
+  480p, particle LOD 1, distortion off, foliage 0.5, kernel_critsec_spin 1024; log out/nxlink_locals.log): **the
+  user: "it looks good, it improved a bit more"**. 54 gameplay windows: 28.0 fps on average (18 under 27); windows
+  over 1,500 draws a frame: 23.6 fps (the same settings with skip_msr alone: 24.7 on average, heavy 20.5).
+- So the console glitch of the full stage A is in the post steps. The volatile build (seventh run) still had the
+  barriers and the direct calls: the direct calls are the suspect (tools/direct_calls.py; GCC then inlines guest
+  functions into each other). Next: no-volatile + barriers without direct calls.
+- Profile at the "sunbeams" (`--renut_gpu_profile=10 --banjo_renut_diag_gpu_shaders=true`, out/nxlink_profile_beams.log):
+  36.9 ms a frame there, 24.2 ms away from them. The beams' blended draws cost under 0.41 ms each; the difference
+  is four opaque scene shaders (PS 26BBB63CB0FBB5B6, 9799A2B6AB81293A, EB1C336D82835754, 49F6C0D33CBE55F1: 15.4 ms at
+  58/153/137/63 draws a frame against 6.9 ms at 27/71/65/27): the forest in that view, ~2,200 draws a frame, 16-17 fps.
+- User report: with the Shrink sense, glitches on the walls with the hidden purple drawings. To check: distortion
+  back on (the sense effect may draw through it).
+- Atmosphere crashed twice right after a send, before the intro movie (18:42 stock-clock run; 23:0x run without
+  log_network); the next send each time ran. The SD log (logs/ next to the NRO) not read yet.

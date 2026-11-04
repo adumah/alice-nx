@@ -1,3 +1,7 @@
-# alice-nx bisect (2026-11-03): skip_msr alone, no post-codegen steps.
+# alice-nx bisect (2026-11-03): skip_msr + the cr/ctr/xer/reserved locals, no post-codegen steps.
 # alice_post_steps = false
 skip_msr = true
+cr_as_local = true
+ctr_as_local = true
+xer_as_local = true
+reserved_as_local = true
