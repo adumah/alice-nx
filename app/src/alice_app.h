@@ -67,6 +67,8 @@ class AliceApp : public rex::ReXApp {
            // beyond a few metres); Renut's shader specialisations off: one variant per shader instead of several, so
            // fewer compiles while playing (the first-use spikes).
            "alice_decals = false\n"
+           "alice_motion_blur = false\n"
+           "alice_composite_lights = true\n"
            "banjo_gpu_output_trim = false\n"
            "banjo_gpu_blend_skip = false\n"
            "banjo_gpu_bool_spec = false\n"

@@ -68,6 +68,19 @@ REXCVAR_DEFINE_INT32(alice_particle_lod_bias, -1, "ALICE",
                      "UE3 ParticleLODBias: 1, 2, ... = cheaper particle LODs; -1 = the game's own (0). Read at each "
                      "settings load")
     .range(-1, 8);
+// alice-nx (2026-11-04, the user on a Switch Lite: "any other improvement"): the rest of the table's cost switches.
+// MotionBlur +0x2C and AllowRadialBlur +0x70 are full-screen post passes; DynamicLights +0x1C draws every object a
+// dynamic light touches once more per light (the draw count is what the forest views are bound by), and
+// CompositeDynamicLights +0x20 = True folds the unshadowed ones into the light environments instead (UE3's cheap path).
+// OneFrameThreadLag +0x60 lets the render thread run a frame behind the game thread (logged, never changed).
+REXCVAR_DEFINE_BOOL(alice_motion_blur, true, "ALICE", "UE3 MotionBlur. false = off. Read at each settings load");
+REXCVAR_DEFINE_BOOL(alice_radial_blur, true, "ALICE",
+                    "UE3 AllowRadialBlur (the radial blur effects). false = off. Read at each settings load");
+REXCVAR_DEFINE_BOOL(alice_dynamic_lights, true, "ALICE",
+                    "UE3 DynamicLights. false = off (fewer draws, flatter lighting). Read at each settings load");
+REXCVAR_DEFINE_BOOL(alice_composite_lights, false, "ALICE",
+                    "UE3 CompositeDynamicLights forced on (dynamic lights merged into the light environments, fewer "
+                    "draws). false = the game's own. Read at each settings load");
 
 namespace {
 
@@ -78,6 +91,10 @@ struct Override {
 };
 
 const Override kOverrides[] = {
+    {[] { return REXCVAR_GET(alice_motion_blur); }, "MotionBlur", 0x2C},
+    {[] { return REXCVAR_GET(alice_motion_blur); }, "MotionBlurPause", 0x34},
+    {[] { return REXCVAR_GET(alice_radial_blur); }, "AllowRadialBlur", 0x70},
+    {[] { return REXCVAR_GET(alice_dynamic_lights); }, "DynamicLights", 0x1C},
     {[] { return REXCVAR_GET(alice_shadows); }, "DynamicShadows", 0x328},
     {[] { return REXCVAR_GET(alice_shadows); }, "LightEnvironmentShadows", 0x32C},
     {[] { return REXCVAR_GET(alice_distortion); }, "Distortion", 0x48},
@@ -138,6 +155,15 @@ extern "C" REX_FUNC(sub_8242F4B0) {
   if (!data)
     return;
   static int logged = 0;
+  if (logged < 64) {
+    logged += 2;
+    REXLOG_INFO("[alice] settings {:08X}: MotionBlur {} AllowRadialBlur {} DynamicLights {} CompositeDynamicLights {} "
+                "OneFrameThreadLag {} SHSecondaryLighting {}",
+                data, LoadBE(data + 0x2C), LoadBE(data + 0x70), LoadBE(data + 0x1C), LoadBE(data + 0x20),
+                LoadBE(data + 0x60), LoadBE(data + 0x24));
+  }
+  if (REXCVAR_GET(alice_composite_lights))
+    StoreBE(data + 0x20, 1);
   for (const FloatOverride &o : kFloatOverrides) {
     const double v = o.value();
     if (v <= 0.0)
