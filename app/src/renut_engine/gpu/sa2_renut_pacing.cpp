@@ -43,6 +43,14 @@ REXCVAR_DEFINE_BOOL(sa2_renut_vblank_pacing, true, "SA2",
                     "(60 Hz refreshes), as the console's vertical blank paces the game; SA2's game speed follows its "
                     "frame rate. Off: the game runs as fast as the host renders (tests only)")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+// alice-nx (2026-11-03, the user: "unlock that cap to 60 fps"). Alice asks for D3DPRESENT_INTERVAL_TWO (device +13872 =
+// 2, logged by PaceSwap): the 30 fps cap is that interval, nothing else. With the pacing off, the PC ran gameplay at
+// 57-58 fps, the game's own limit ([Engine.GameEngine] MaxSmoothedFrameRate = 58; UE3 moves by the frame's delta time).
+REXCVAR_DEFINE_INT32(alice_frame_rate, 30, "ALICE",
+                     "Frame rate cap: 30 = the game's own (presentation interval TWO, default); 60 = one refresh a "
+                     "frame (the game then caps itself near 58; frames that miss a refresh go at once). Read at start")
+    .range(30, 60)
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 // The native renderer's relaxed vsync key (src/me/me_native_system.cpp), the player's setting.
 extern ::sa2::enh::Enhancement g_vsync_relaxed;
@@ -152,7 +160,16 @@ void PaceSwap(uint32_t device_va) {
   static const bool on = REXCVAR_GET(sa2_renut_vblank_pacing);
   if (!on || !device_va) return;
   const auto *interval_word = ::renut::gpu::GuestPtr<const be_u32>(device_va + kDeviceOffsetPresentationInterval);
-  const uint32_t refreshes = RefreshesPerFrame(interval_word ? uint32_t(*interval_word) : 1);
+  const uint32_t interval = interval_word ? uint32_t(*interval_word) : 1;
+  static const bool unlocked = REXCVAR_GET(alice_frame_rate) >= 60;
+  const uint32_t game_refreshes = RefreshesPerFrame(interval);
+  const uint32_t refreshes = unlocked && game_refreshes > 1 ? 1u : game_refreshes;
+  // alice-nx (2026-11-03): which interval the game asks for (the 30 fps question), logged when it changes.
+  static uint32_t logged_interval = 0xFFFFFFFFu;
+  if (interval != logged_interval) {
+    logged_interval = interval;
+    REXLOG_INFO("[renut] presentation interval {:#x}: {} refreshes a frame", interval, refreshes);
+  }
   const auto now = Clock::now();
   // sa2-nx (2026-10-20, banjo_display_sync, Banjo's latency set): on the Switch the release follows the display's own
   // refresh (its vsync event) plus a measured phase, as late as the frame's image still makes the refresh, instead of

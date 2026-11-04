@@ -288,3 +288,15 @@ New keys, each true (the game's own value) by default, false = forced off after 
 `alice_bloom` (UseHighQualityBloom only), `alice_lens_flares`, `alice_fog_volumes`. PC: all of them read 1 before
 they were zeroed, as the ini says (True). Water reflections are scene captures (USceneCaptureReflectComponent), which
 have no SystemSettings switch: not covered yet.
+
+### The 30 fps cap, and 60 (2026-11-03)
+
+- The cap is the present interval: Alice asks for **D3DPRESENT_INTERVAL_TWO** (device +13872 = 2; PaceSwap now logs
+  `presentation interval 0x2: 2 refreshes a frame`). Renut paces each Swap by it (sa2_renut_pacing.cpp).
+- With `--sa2_renut_vblank_pacing=false` (PC, gameplay): 57-58 fps. The game's own limit is UE3's frame smoothing,
+  `[Engine.GameEngine] MaxSmoothedFrameRate = 58` (it overrides `[Engine.Engine]`'s 31).
+- `alice_frame_rate = 60` (default 30): one refresh a frame. PC, the same input script: 57.1-57.7 fps, GPU 4.2-6.2 ms;
+  the screenshot at 190 s shows Alice at the same place as at 30 fps, so game speed follows time, not frames. At 58
+  fps against a 60 Hz display, about one frame in 30 is shown for two refreshes. Not yet run on the console, which
+  doesn't hold 30 in heavy scenes.
+- Stock clocks for a test: `--alice_cpu_mhz=0 --alice_handheld_gpu_mhz=0 --sa2_gpu_boost=false`.
