@@ -300,3 +300,13 @@ have no SystemSettings switch: not covered yet.
   fps against a 60 Hz display, about one frame in 30 is shown for two refreshes. Not yet run on the console, which
   doesn't hold 30 in heavy scenes.
 - Stock clocks for a test: `--alice_cpu_mhz=0 --alice_handheld_gpu_mhz=0 --sa2_gpu_boost=false`.
+
+### Fifth console run: stock clocks (2026-11-03, 18:46-18:48)
+
+`--alice_cpu_mhz=0 --alice_handheld_gpu_mhz=0 --sa2_gpu_boost=false`, handheld, shadows off, 30 fps cap. Log:
+out/nxlink_stock.log. No `[clocks]` line: nothing touched. (The try before it, 18:42, ended with Atmosphere
+crashing at the intro movie, out/nxlink_crash1.log; the second try with the same options got past it, so not
+reproduced.)
+- Movies and menu 29.5 fps (GPU 2.5 ms); the first 3D scene 29.5 (GPU 12-31 ms).
+- Gameplay: 8.6-18.7 fps, GPU 48-101 ms a frame; the last minute 16.8 fps at GPU 59 ms, render thread ~8 ms. So at
+  stock it is GPU-bound throughout, about 2-3x the GPU time of the held 768 MHz runs.
