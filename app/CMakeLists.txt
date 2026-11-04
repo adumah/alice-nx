@@ -68,6 +68,12 @@ endif()
 # docs/alice-notes.md). ON compiles the generated code with volatile guest loads/stores again (REX_GUEST_VOLATILE,
 # tools/pch_no_volatile.py), everything else of the flavour kept.
 option(ALICE_GUEST_VOLATILE "Generated code: volatile guest memory accesses (bisect)" OFF)
+# alice-nx (2026-11-04): -fwrapv on the generated code: guest arithmetic on signed C++ types wraps like the PowerPC's
+# instead of being undefined (GCC may assume it never overflows once functions are inlined into each other).
+option(ALICE_GENERATED_WRAPV "Generated code: -fwrapv" OFF)
+if(ALICE_GENERATED_WRAPV AND TARGET alice_recomp)
+    target_compile_options(alice_recomp PRIVATE -fwrapv)
+endif()
 if(ALICE_GUEST_VOLATILE AND TARGET alice_recomp)
     target_compile_definitions(alice_recomp PRIVATE REX_GUEST_VOLATILE=volatile)
 endif()

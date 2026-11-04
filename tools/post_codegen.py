@@ -33,13 +33,20 @@ def main():
     # alice-nx (2026-11-03, bisecting the console's glitched picture): '# alice_post_steps = false' in the flavour
     # file keeps the generator options but skips the post-codegen rewrites (no-volatile pch, loop barriers, direct
     # calls).
-    post_steps = re.search(r'^#\s*alice_post_steps\s*=\s*false', flavor_toml, re.M) is None
+    post_steps = re.search(r'^#\s*alice_post_steps\s*=\s*(false|direct_calls)', flavor_toml, re.M) is None
     if optimised and not post_steps:
         flavor = 'optimised codegen without post steps:'
         flavor += ' ' + ', '.join(re.findall(r'^\s*([a-z_]+)\s*=\s*true', flavor_toml, re.M))
         flavor = flavor.replace(' codegen without', ' without')
     tools = os.path.join(ROOT, 'tools')
     gen = os.path.join(GEN, 'default')
+    # alice-nx (2026-11-04, bisect): '# alice_post_steps = direct_calls' runs only tools/direct_calls.py.
+    direct_only = re.search(r'^#\s*alice_post_steps\s*=\s*direct_calls', flavor_toml, re.M) is not None
+    if direct_only:
+        post_steps = False
+        flavor = flavor.replace(' without post steps:', ' with direct calls only:')
+        os.environ.setdefault('REXSDK_DIR', os.path.join(ROOT, '..', 'sa2-nx', 'sdk'))
+        run(os.path.join(tools, 'direct_calls.py'), '--redo', '--gen', gen)
     if optimised and post_steps:
         run(os.path.join(tools, 'pch_no_volatile.py'), os.path.join(gen, 'alice_pch.h'))
         # REQUIRED with the line above: without barriers GCC turns guest polling loops into infinite loops.

@@ -2,6 +2,7 @@
 #include "renut_engine/gpu/banjo_renut_deko3d.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cinttypes>
 #include <cstdio>
 #include <cstring>
@@ -188,17 +189,37 @@ void LoadCache() {
       // went after such a record, where the next start's walk never found them: Ryujinx runs 20-22 compiled the same
       // ~30 shaders on every start.
       long at = sizeof(head);
+      // alice-nx (2026-11-04): the records' heads read from 8 MB chunks in one pass. The walk did a seek and three
+      // reads a record: with the PC-made cache of every variant (tools/renut/precompile_all_variants.py, 54,179
+      // records, ~280 MB) that is 54,179 SD round trips at start. The same checks and the same result.
+      const auto t0 = std::chrono::steady_clock::now();
+      std::vector<uint8_t> chunk(8u << 20);
+      long chunk_start = 0, chunk_len = 0;
+      auto have = [&](long pos, long need) {
+        if (pos >= chunk_start && pos + need <= chunk_start + chunk_len)
+          return true;
+        if (std::fseek(c.file, pos, SEEK_SET) != 0)
+          return false;
+        chunk_start = pos;
+        chunk_len = long(std::fread(chunk.data(), 1, chunk.size(), c.file));
+        return pos + need <= chunk_start + chunk_len;
+      };
       for (;;) {
         uint64_t key;
         uint32_t size, magic;
-        if (at + 16 > length || std::fseek(c.file, at, SEEK_SET) != 0 || std::fread(&key, sizeof(key), 1, c.file) != 1 ||
-            std::fread(&size, sizeof(size), 1, c.file) != 1 || std::fread(&magic, sizeof(magic), 1, c.file) != 1)
+        if (at + 16 > length || !have(at, 16))
           break;
+        const uint8_t *h = chunk.data() + (at - chunk_start);
+        std::memcpy(&key, h, sizeof(key));
+        std::memcpy(&size, h + 8, sizeof(size));
+        std::memcpy(&magic, h + 12, sizeof(magic));
         if (size < 64 || size > (16u << 20) || at + 12 + long(size) > length || magic != kDkshMagic)
           break;
         c.index[key] = {at + 12, size};
         at += 12 + long(size);
       }
+      REXLOG_INFO("[deko3d] DKSH cache {}: {} records indexed in {} ms", c.path, c.index.size(),
+                  std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
       c.end = at;
       if (at != length) {
         REXLOG_WARN("[deko3d] DKSH cache {}: {} bytes after the last whole record ({} of them) dropped", c.path,

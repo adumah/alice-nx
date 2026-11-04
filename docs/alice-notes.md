@@ -425,3 +425,24 @@ All on out/alice_depthbias.nro (skip_msr + locals, depth bias), handheld, CPU 17
   cached range served stale). Not checked yet.
 - Switch defaults now (out/alice_best.nro): 480p, foliage 0.5, critsec spin 1024, decals off, the three Renut
   specialisations off; particle LOD bias dropped.
+
+### No shader compiles while playing: every variant compiled on the PC (2026-11-04 night)
+
+What the other ports did (the user's reading list): mk9-nx's async pipelines (`mk9_async_pipelines`: draws left out
+while a worker builds the pipeline) were turned **off in its 1.0.1** (coloured triangles and long waits on the
+console); what removed its compile hitches was a DKSH cache built at build time from the console's pipeline list (0
+compiles on a fresh console). masseffect-nx ships a prewarm list the same way. A list only covers places already
+played, though, and the spikes left here are in places the console has not seen.
+- So the variants were made predictable instead. With banjo_gpu_bool_spec / blend_skip / output_trim off (the
+  defaults since run 14) and now banjo_deko3d_vs_outputs off (constants 905 and 906 depended on the vertex/pixel
+  shader pairing), Build() (render/pipeline.cpp) and plume's createGraphicsPipeline give a vertex shader only 904 = 1
+  (not tessellated; banjo_deko3d_tess_spec) and a pixel shader only 909 = 1 (no depth/stencil writes;
+  banjo_deko3d_early_z); 907, 908, 910-912 only in non-default modes or for banjo-nx's listed shaders.
+- `tools/renut/precompile_all_variants.py`: every shader of out/deko3d_shaders/glsl_opt in its variants {} / {904}
+  and {} / {909} (a constant its GLSL does not declare makes no define), the text and key as
+  tools/renut/deko3d_variant_cache.py (copied from sa2-nx; accepts the 200-byte keys of the depth-bias change): 29,701
+  shaders, 54,179 variants (28,337 pixel shaders declare 909, 195 vertex shaders 904).
+- Check of the text: the console's log (out/nxlink_best.log) names 25 run-time pixel variants with 909 = 1 alone; each
+  has a pixel shader of exactly its source size minus the 39-byte define line.
+- LoadCache (banjo_renut_deko3d.cpp) now indexes the records from 8 MB chunks (one pass) instead of a seek and three
+  reads a record: 54,179 SD round trips otherwise. It logs the time.

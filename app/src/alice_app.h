@@ -70,6 +70,11 @@ class AliceApp : public rex::ReXApp {
            "banjo_gpu_output_trim = false\n"
            "banjo_gpu_blend_skip = false\n"
            "banjo_gpu_bool_spec = false\n"
+           // alice-nx (2026-11-04): the vertex shaders' outputs not pruned per pixel shader (constants 905 / 906, which
+           // depend on the pairing): with it and the three above, every variant a draw can need is one of
+           // {} / {904} (vertex) and {} / {909} (pixel), all compiled on the PC into the SD card's DKSH cache
+           // (tools/renut/precompile_all_variants.py): no shader compiles while playing.
+           "banjo_deko3d_vs_outputs = false\n"
            "asset_pack = true\n"
            "asset_pack_build = true\n"
            "log_level = \"info\"\n"
