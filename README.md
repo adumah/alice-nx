@@ -10,10 +10,10 @@ made by static recompilation with [ReXGlue](https://github.com/rexglue/rexglue-s
 > it on your own computer. See [Disclaimer](#disclaimer).
 
 > [!WARNING]
-> **Beta.** The game is playable on a real Switch (tested from the start into Chapter 2, the Hatter's Domain), but it
-> is not finished: some textures and effects are drawn wrong (see [Known issues](#known-issues)), and it runs at
-> **about 29.5 fps on average** (a 30 fps cap, with dips to about 21 in the busiest scenes). Unreal Engine 3 is hard
-> to recompile for the Switch: its game thread is heavy CPU work, and the console's CPU is the limit in most scenes.
+> **Beta.** The entire game is playable on a real Switch, but the port is not finished: some textures and effects are
+> drawn wrong (see [Known issues](#known-issues)), and it runs at **about 29.5 fps on average** (a 30 fps cap, with
+> dips to about 21 in the busiest scenes). Unreal Engine 3 is hard to recompile for the Switch: its game thread is
+> heavy CPU work, and the console's CPU is the limit in most scenes.
 
 ## Screenshots
 
@@ -93,7 +93,7 @@ English, German, Spanish (Spain), French, Italian and partly Japanese. The game 
 user_language = 5   # 1 English (default), 2 Japanese, 3 German, 4 French, 5 Spanish, 6 Italian
 ```
 
-Spanish works on the console with `user_language = 5`. The other languages are not tested yet: reports are welcome.
+Spanish works on the console with `user_language = 5`. Reports on the other languages are welcome.
 
 ## American McGee's Alice (the original game)
 
@@ -105,6 +105,9 @@ was a separate download unlocked by the Online Pass, not part of the disc. The b
 of it may come later.
 
 ## Known issues
+
+Bugs and glitches are tracked in the [Issues](https://github.com/adumah/alice-nx/issues) section: please report new
+ones there (what you saw, where in the game, and the log from `logs/` next to `alice.nro`). The known ones so far:
 
 - An oil decal on the floor can show as a square near Alice.
 - Frame rate dips to about 21 fps in the busiest scenes (forests with many objects).
