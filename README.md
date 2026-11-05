@@ -1,6 +1,6 @@
 # alice-nx
 
-An unofficial, fan-made port of the Xbox 360 game **Alice: Madness Returns** to the **Nintendo Switch** (and Linux),
+An unofficial, fan-made port of the Xbox 360 game **Alice: Madness Returns** to the **Nintendo Switch**,
 made by static recompilation with [ReXGlue](https://github.com/rexglue/rexglue-sdk). Built on
 [sa2-nx](https://github.com/ChanseyIsTheBest/sa2-nx) and started from [mhnwis-nx](https://github.com/adumah/mhnwis-nx).
 
@@ -98,8 +98,9 @@ Not tested yet in a language other than English: reports are welcome.
   an `.iso`. `Default.xex` must be title ID `45410916`, media ID `31C4B45C`, version 2 (the code generator prints
   these).
 - **A Switch with custom firmware** (Atmosphère) and about 5 GB free on the SD card (the game files are 4.5 GB).
-- **A Linux PC** (x86-64) with: clang, CMake 3.25 or newer, Ninja, Python 3, Git, a Vulkan driver, the X11/XCB and
-  Wayland development files, and [devkitPro](https://devkitpro.org/) (devkitA64, libnx, deko3d, switch-tools).
+- **A Linux PC (x86-64) to build on**: nothing is played on it. With clang, CMake 3.25 or newer, Ninja, Python 3, Git,
+  the X11/XCB and Wayland development files, and [devkitPro](https://devkitpro.org/) (devkitA64, libnx, deko3d,
+  switch-tools).
 - About 10 GB of free memory to compile (the translated game is ~247 MB of C++; `-j 4`), and about 20 GB of disk.
 - [sa2-nx](https://github.com/ChanseyIsTheBest/sa2-nx) next to this repository, at commit
   `adf3a4eee524dcca5cd7c1b42454ddb8a09124a1` (the script below clones it): its SDK fork and tools are used to build.
@@ -135,7 +136,7 @@ tools/build_sdk.sh                        # the code generator (once)
 mkdir -p assets && ln -s /path/to/your/extracted/disc assets/game_root
 tools/codegen.sh                          # translate the game's code (about 5 minutes; app/generated/, never committed)
 tools/renut/extract_shaders.sh            # every shader from the game's packages
-tools/build_pc.sh -j 4                    # the PC build, which also translates the shaders
+tools/host_shaders.sh -j 4                # the shaders, translated on the PC (no PC game is built)
 tools/deko3d_build_tools.sh               # the shader compilers for the Switch (once)
 tools/renut/switch_shaders.sh             # the shaders in their Switch form
 python3 -I tools/renut/precompile_all_variants.py --jobs 4   # deko3d_shaders.bin (the longest step)
@@ -143,15 +144,12 @@ tools/build_switch.sh                     # out/nx/alice.nro
 tools/package_switch.sh --with-game       # the SD card folder
 ```
 
-## The PC version
-
-The same build steps make a Linux version too (`tools/build_pc.sh`, then `tools/run.sh`). It runs on the SDK's
-emulated Xbox 360 GPU by default, or on Renut with `--sa2_renderer=renut`. It is mainly a development tool: the Switch
-is the target. `tools/boot_test.sh [seconds] [options]` makes a muted, minimized test run, with scripted input
-(`--input_script=60:START,75:A`) and screenshots (`--alice_screenshots=120,135`, written to `out/pc/shots/`).
+## Notes for developers
 
 Analysis notes, with the evidence for every correction: [docs/alice-notes.md](docs/alice-notes.md) and
 [docs/d3d-census.md](docs/d3d-census.md). Code-generator corrections: [app/overrides.toml](app/overrides.toml).
+`tools/send_switch.sh` sends a fresh `out/nx/alice.nro` to a Switch in the homebrew menu's netloader and shows the
+game's log on the PC.
 
 ## Disclaimer
 

@@ -2,7 +2,7 @@
 # Configures (first time) and builds the Nintendo Switch NRO: out/nx/alice.nro (sa2-nx's tools/win/build_switch.ps1,
 # for Linux). Logs: out/nx_configure.log, out/nx_build.log.
 #
-# Before the first build: tools/build_pc.sh (the generated code and the game's shaders come from the PC tree),
+# Before the first build: tools/codegen.sh (the generated code), tools/host_shaders.sh (the game's shaders),
 # tools/deko3d_build_tools.sh and tools/renut/switch_shaders.sh.
 #
 # Renut draws on deko3d, so the NRO has no Vulkan driver (REXGLUE_SWITCH_NO_NVK). The SDK and plume still want an

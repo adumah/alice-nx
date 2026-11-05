@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs Microsoft's DirectX Shader Compiler (official Linux release, checksum-pinned) where Renut's build looks for
 # it: <sa2-nx>/app/thirdparty/reblue-XenosRecomp/thirdparty/dxc-bin/{bin,lib}/x64. The sa2-nx tree ships only DXC's
-# headers there. Run once after cloning sa2-nx (tools/build_sdk.sh does not need it; tools/build_pc.sh does).
+# headers there. Run once after cloning sa2-nx (tools/build_sdk.sh does not need it; tools/host_shaders.sh does).
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 sa2="${SA2_NX:-$root/../sa2-nx}"

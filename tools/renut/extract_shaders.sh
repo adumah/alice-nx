@@ -3,7 +3,7 @@
 # (out/pc/shader_capture, merged into out/renut_shader_dump at configure): no playing needed to find shaders
 # (docs/alice-notes.md, "Every shader from the game's packages"). Game data: out/ only, never committed.
 #
-#   tools/renut/extract_shaders.sh          (then: cmake -S app -B out/pc, tools/build_pc.sh, switch_shaders.sh, ...)
+#   tools/renut/extract_shaders.sh          (then: tools/host_shaders.sh, switch_shaders.sh, ...)
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 sa2="${SA2_NX:-$root/../sa2-nx}"

@@ -1,7 +1,7 @@
 # Alice: Madness Returns - ReXGlue recompiled project (the SDK's init template).
 #
 # SDK boilerplate lives in generated/rexglue.cmake (written by the code generator). Configure with
-# -DREXSDK_DIR=<sa2-nx>/sdk; tools/build_pc.sh does it.
+# -DREXSDK_DIR=<sa2-nx>/sdk; tools/host_shaders.sh (the PC tree, for the shader tools) and tools/build_switch.sh do it.
 
 cmake_minimum_required(VERSION 3.25)
 project(alice LANGUAGES CXX)

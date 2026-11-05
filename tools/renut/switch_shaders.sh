@@ -4,14 +4,14 @@
 # for uam with fixed bindings, banjo-nx's GLSL passes (each output compiled with the PC uam: --check), the GLSL
 # package and the SPIR-V cache the NRO links (out/renut_switch). Game data: never committed, never distributed.
 #
-#   tools/renut/switch_shaders.sh          (after tools/build_pc.sh and tools/deko3d_build_tools.sh)
+#   tools/renut/switch_shaders.sh          (after tools/host_shaders.sh and tools/deko3d_build_tools.sh)
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 tools="$root/tools/renut"
 sh="$root/out/deko3d_shaders"
 recomp="$root/out/pc/xenos_recomp/build/XenosRecomp/XenosRecomp"
 common="$root/app/src/renut_engine/gpu/shaders/xenos/shader_common.h"
-[[ -x "$recomp" ]] || { echo "no $recomp: build the PC tree first (tools/build_pc.sh)" >&2; exit 1; }
+[[ -x "$recomp" ]] || { echo "no $recomp: run tools/host_shaders.sh first" >&2; exit 1; }
 cd "$root"
 
 echo "== SPIR-V (XenosRecomp, the PC build's early alpha HLSL)"

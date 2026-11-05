@@ -72,8 +72,8 @@ step "Translating the game's code (about 3 minutes)"
 step "Every shader from the game's packages"
 "$root/tools/renut/extract_shaders.sh"
 
-step "The PC build (the first one takes a while; it also translates the shaders)"
-"$root/tools/build_pc.sh" -j "$jobs"
+step "The shaders, translated on this PC (the game itself is not built for the PC)"
+"$root/tools/host_shaders.sh" -j "$jobs"
 
 step "The game's shaders for the Switch"
 "$root/tools/renut/switch_shaders.sh"

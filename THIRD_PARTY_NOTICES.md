@@ -55,8 +55,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   - its porting prompt, `docs/porting-a-360-game-prompt.md`, and porting guide, `docs/porting-guide.md`: this port
     followed their method, stage by stage;
   - its SDK fork (`sdk/`) and analysis tools (`tools/`), which this project builds with and calls;
-  - `tools/pointer_fixpoint.py` in this repository is a modified copy of sa2-nx's tool of the same name (the
-    changes are listed at its top).
+  - its Switch platform layer and Renut integration, and the copied tools listed below.
 - Because of that copied and adapted code, this project is distributed under the GPL-3.0 as well (see `LICENSE`).
 
 ## Renut's renderer (reNut, banjo-nx, sa2-nx)
