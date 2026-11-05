@@ -29,10 +29,9 @@ Taken on a Switch Lite (handheld) with this port.
 > [!NOTE]
 > **A real native port.** This is a full static recompilation, made with ReXGlue, of the Xbox 360 game itself
 > (Unreal Engine 3). It is **not** a re-skin of another game's port (the tools come from sa2-nx; the game is recompiled
-> from scratch), and **not** an Autorun, Carafe or Winlator package. No
-> emulator and no run-time translator (no Wine, no Box64/FEX, no JIT) runs while you play. The game's PowerPC code and
-> its shaders are converted once, ahead of time, when you build the port. What runs on the Switch is native ARM code
-> drawing with the Switch's own graphics API.
+> from scratch), and **not** an Autorun, Carafe or Winlator package. No emulator and no run-time translator (no Wine,
+> no Box64/FEX, no JIT) runs while you play. The game's PowerPC code and its shaders are converted once, ahead of time,
+> when you build the port. What runs on the Switch is native ARM code drawing with the Switch's own graphics API.
 
 The PowerPC code of the game's `default.xex` is translated to C++ by ReXGlue and compiled for the Switch's ARM CPU. It
 is not an emulator. The game is drawn natively on the Switch's own graphics API, **deko3d**, by Renut, a
@@ -92,15 +91,14 @@ English, German, Spanish (Spain), French, Italian and partly Japanese. The game 
 user_language = 5   # 1 English (default), 2 Japanese, 3 German, 4 French, 5 Spanish, 6 Italian
 ```
 
-Spanish works on the console with `user_language = 5`. The other languages are not tested
-yet: reports are welcome.
+Spanish works on the console with `user_language = 5`. The other languages are not tested yet: reports are welcome.
 
 ## American McGee's Alice (the original game)
 
 The main menu's **American McGee's Alice** button is there, but the original game is not included: on the Xbox 360 it
 was a separate download unlocked by the Online Pass, not part of the disc. The button asks you to redeem a code;
-**do not enter one, the game crashes.** A separate
-open-source remake of it, [Looking Glass](https://github.com/looking-glass-project/LookingGlass) (Windows; an
+**do not enter one, the game crashes.** A separate open-source remake of it,
+[Looking Glass](https://github.com/looking-glass-project/LookingGlass) (Windows; an
 [Android edition](https://github.com/Player124413/Looking-Glass-android-edition) too), is in development; a Switch port
 of it may come later.
 
