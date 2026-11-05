@@ -17,7 +17,9 @@ made by static recompilation with [ReXGlue](https://github.com/rexglue/rexglue-s
 
 ## Screenshots
 
-Taken on a Switch Lite (handheld) with this port.
+> [!NOTE]
+> These screenshots show the game running on **real hardware**: a Nintendo Switch Lite with this port's overclock,
+> shadows off and the other [performance settings](#performance-settings) at their defaults for the best frame rate.
 
 | | |
 |---|---|
@@ -109,6 +111,8 @@ of it may come later.
 - Once, Alice's body (not her head and arms) was not drawn after a long session; it was not seen again since.
 - Colours are slightly brighter and less saturated than on the Xbox 360.
 - Some floor and light-shaft effects are drawn wrong in places.
+- The main menu's American McGee's Alice button asks for a code; entering one crashes the game (the original game is
+  not included: see [American McGee's Alice](#american-mcgees-alice-the-original-game)).
 
 ## What you need
 
