@@ -97,8 +97,9 @@ yet: reports are welcome.
 
 ## American McGee's Alice (the original game)
 
-The main menu's **American McGee's Alice** entry is not available in this port: on the Xbox 360 the original game was a
-separate download (unlocked by the Online Pass), not part of the disc, and it is not included here. A separate
+The main menu's **American McGee's Alice** button is there, but the original game is not included: on the Xbox 360 it
+was a separate download unlocked by the Online Pass, not part of the disc. The button asks you to redeem a code;
+**do not enter one, the game crashes.** A separate
 open-source remake of it, [Looking Glass](https://github.com/looking-glass-project/LookingGlass) (Windows; an
 [Android edition](https://github.com/Player124413/Looking-Glass-android-edition) too), is in development; a Switch port
 of it may come later.
