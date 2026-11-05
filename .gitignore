@@ -20,3 +20,6 @@ nxeart
 # Python caches
 __pycache__/
 *.pyc
+
+# The local Claude session prompt (personal paths and habits; never published)
+docs/resume-prompt.md
