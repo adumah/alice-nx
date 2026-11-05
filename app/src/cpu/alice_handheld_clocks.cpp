@@ -27,9 +27,11 @@
 #include <switch.h>
 #endif
 
-REXCVAR_DEFINE_INT32(alice_handheld_gpu_mhz, 768, "ALICE",
-                     "Handheld GPU clock in MHz, held by the game while it runs: 768 = the docked clock (default). "
-                     "460 or less: sa2_gpu_boost's official 460.8 MHz profile instead, nothing held. Read at start")
+// alice-nx (2026-11-05): the user's call: stock clocks by default (0), the overclock is the player's own choice.
+REXCVAR_DEFINE_INT32(alice_handheld_gpu_mhz, 0, "ALICE",
+                     "Handheld GPU clock in MHz: 0 = not touched, the console's stock clocks (default). 1-460: "
+                     "sa2_gpu_boost's official 460.8 MHz profile, nothing held. 461-768: held by the game while it "
+                     "runs (768 = the docked clock). Read at start")
     .range(0, 768)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 // alice-nx (2026-11-02): the CPU. Gears of War 2's port (UE3 too, gears2-nx README "Performance") ran 12-17 fps at
@@ -39,9 +41,11 @@ REXCVAR_DEFINE_INT32(alice_handheld_gpu_mhz, 768, "ALICE",
 // user's call (2026-11-02): hold 1785 MHz. Docked and handheld alike (both modes' CPU is 1020); the rate the CPU had
 // at start comes back at exit.
 // RISK: an overclock above Nintendo's clocks (sys-clk's usual 1785): more heat and power draw.
-REXCVAR_DEFINE_INT32(alice_cpu_mhz, 1785, "ALICE",
-                     "CPU clock in MHz, held by the game while it runs, docked and handheld: 1785 (default; above "
-                     "the console's stock 1020: more heat and power draw). 0: not touched. Read at start")
+// alice-nx (2026-11-05): default 0 (stock 1020 MHz); the player opts in.
+REXCVAR_DEFINE_INT32(alice_cpu_mhz, 0, "ALICE",
+                     "CPU clock in MHz, held by the game while it runs, docked and handheld: 0 = not touched, the "
+                     "console's stock 1020 (default). 1224, 1428, 1581 or 1785: an overclock (more heat and power "
+                     "draw). Read at start")
     .range(0, 1785)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_BOOL(alice_handheld_emc_1600, true, "ALICE",
@@ -145,27 +149,32 @@ void Hold(u32 gpu_hz, u32 config, u32 cpu_hz) {
 void Start() {
   const int32_t mhz = REXCVAR_GET(alice_handheld_gpu_mhz);
   const int32_t cpu_mhz = REXCVAR_GET(alice_cpu_mhz);
+  if (mhz <= 0 && cpu_mhz <= 0) {
+    REXLOG_INFO("[clocks] stock clocks: nothing touched (alice_cpu_mhz / alice_handheld_gpu_mhz in alice.toml)");
+    return;
+  }
   if (mhz <= 460 && cpu_mhz <= 0) {
     sa2::enh::ApplyGpuBoost();
     return;
   }
 #if REX_PLATFORM_SWITCH
   if (R_FAILED(clkrstInitialize())) {
-    REXLOG_WARN("[clocks] no clkrst: sa2_gpu_boost's 460.8 MHz profile instead");
-    sa2::enh::ApplyGpuBoost();
+    REXLOG_WARN("[clocks] no clkrst");
+    if (mhz > 0) sa2::enh::ApplyGpuBoost();  // its 460.8 MHz profile instead
     return;
   }
   if (cpu_mhz > 0 && ClockOf(PcvModuleId_CpuBus, g_cpu_original_hz))
     REXLOG_INFO("[clocks] CPU {} MHz held (it was {:.1f})", cpu_mhz, g_cpu_original_hz / 1e6);
-  if (mhz <= 460) {
+  if (mhz > 0 && mhz <= 460) {
     // The GPU as sa2_gpu_boost has it; the thread holds the CPU alone (gpu_hz 0: the handheld part does nothing
     // above the configuration).
     sa2::enh::ApplyGpuBoost();
   }
   g_has_original = R_SUCCEEDED(apmGetPerformanceConfiguration(ApmPerformanceMode_Normal, &g_config_original));
   const u32 config = REXCVAR_GET(alice_handheld_emc_1600) ? kConfigEmc1600 : kConfigEmc1331;
-  REXLOG_INFO("[clocks] handheld: GPU {} MHz over configuration 0x{:08X} (the console's: 0x{:08X})", mhz, config,
-              g_has_original ? g_config_original : 0u);
+  if (mhz > 460)
+    REXLOG_INFO("[clocks] handheld: GPU {} MHz over configuration 0x{:08X} (the console's: 0x{:08X})", mhz, config,
+                g_has_original ? g_config_original : 0u);
   g_thread = std::thread(Hold, mhz > 460 ? u32(mhz) * 1000000u : 0u, config,
                          cpu_mhz > 0 ? u32(cpu_mhz) * 1000000u : 0u);
 #endif

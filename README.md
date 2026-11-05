@@ -11,15 +11,17 @@ made by static recompilation with [ReXGlue](https://github.com/rexglue/rexglue-s
 
 > [!WARNING]
 > **Beta.** The entire game is playable on a real Switch, but the port is not finished: some textures and effects are
-> drawn wrong (see [Known issues](#known-issues)), and it runs at **about 29.5 fps on average** (a 30 fps cap, with
-> dips to about 21 in the busiest scenes). Unreal Engine 3 is hard to recompile for the Switch: its game thread is
-> heavy CPU work, and the console's CPU is the limit in most scenes.
+> drawn wrong (see [Known issues](#known-issues)), and with the [overclock](#overclock) turned on it runs at **about
+> 29.5 fps on average** (a 30 fps cap, with dips to about 21 in the busiest scenes). At the stock clocks (the default)
+> it is much slower in gameplay. Unreal Engine 3 is hard to recompile for the Switch: its game thread is heavy CPU
+> work, and the console's CPU is the limit in most scenes.
 
 ## Screenshots
 
 > [!NOTE]
-> These screenshots show the game running on **real hardware**: a Nintendo Switch Lite with this port's overclock,
-> shadows off and the other [performance settings](#performance-settings) at their defaults for the best frame rate.
+> These screenshots show the game running on **real hardware**: a Nintendo Switch Lite with the maximum
+> [overclock](#overclock) profile, shadows off and the other [performance settings](#performance-settings) at their
+> defaults for the best frame rate.
 
 | | |
 |---|---|
@@ -42,23 +44,46 @@ game's Direct3D calls are replaced by native ones, and its Xbox 360 shaders are 
 
 ## Overclock
 
+By default the port **does not overclock**: the CPU, GPU and memory stay at the console's stock clocks and the fan
+is left to the console's own control, as with any game. At stock clocks the game runs, but slowly in gameplay (an
+older build measured **about 9-19 fps** in handheld mode at stock, with the GPU as the limit; menus and movies hold 30).
+
+**To reach a stable 30 fps you need to turn the overclock on yourself.** Put the lines of one profile below in
+`alice.toml` next to `alice.nro` (create the file if it does not exist) and start the game again:
+
+**Recommended** (CPU 1785 MHz, handheld GPU 460.8 MHz):
+
+```toml
+alice_cpu_mhz = 1785          # the CPU, docked and handheld (stock: 1020)
+alice_handheld_gpu_mhz = 460  # handheld: the official 460.8 MHz GPU profile (stock: 307.2-384)
+```
+
+**Maximum** (what the screenshots and the 29.5 fps average were measured with; the most heat):
+
+```toml
+alice_cpu_mhz = 1785
+alice_handheld_gpu_mhz = 768  # handheld: the docked GPU clock, with the memory at 1600 MHz
+```
+
+The CPU matters most: Unreal Engine 3's game thread is the limit in most scenes. Other CPU clocks you can use, for
+less heat and a longer battery life at a lower frame rate:
+
+| `alice_cpu_mhz` | |
+|---|---|
+| `0` (default) | Not touched: the stock 1020 MHz. |
+| `1224` | A small raise. |
+| `1428` | A middle step. |
+| `1581` | Close to the recommended clock, a bit cooler. |
+| `1785` | Recommended for 30 fps (the highest this port allows). |
+
+`alice_handheld_gpu_mhz` is `0` (default: not touched), `460` (Nintendo's official 460.8 MHz handheld profile), or
+any value from `537` to `768` (held by the game, with the memory at 1600 MHz; `768` is the docked clock). Docked,
+the GPU and memory are always left as they are. Only the recommended and maximum profiles have been played on the
+console; the other CPU clocks are steps the Switch supports, not yet measured with this port.
+
 > [!CAUTION]
-> **This port raises the console's clocks while the game runs**, because the game needs it:
->
-> | | Stock | This port |
-> |---|---|---|
-> | CPU (docked and handheld) | 1020 MHz | **1785 MHz** (an overclock) |
-> | GPU (handheld) | 307.2-460.8 MHz | **768 MHz** (the console's docked clock) |
-> | Memory (handheld) | 1331.2 MHz | **1600 MHz** (the console's docked clock) |
->
-> Docked, the GPU and memory are left as they are. The clocks go back when the game closes. Expect **more heat and a
-> shorter battery life**. Use it at your own risk. To turn the overclock off, put these lines in `alice.toml` next to
-> `alice.nro` (the game is then slower):
->
-> ```toml
-> alice_cpu_mhz = 0            # the CPU is not touched
-> alice_handheld_gpu_mhz = 460 # the official 460.8 MHz handheld profile, nothing held
-> ```
+> **An overclock is your own choice and risk.** CPU clocks above 1020 MHz are above Nintendo's own clocks. Expect
+> **more heat, a louder fan and a shorter battery life**. The clocks go back to stock when the game closes.
 
 ## Performance settings
 
@@ -205,8 +230,8 @@ and shaders: they are for your own use only. **Do not share them, and do not ask
 download links.**
 
 Running homebrew requires custom firmware, which goes against Nintendo's terms of service and can get a console
-banned. The overclock (see [Overclock](#overclock)) runs the console above its stock clocks. Both are your own
-choice and risk.
+banned. The overclock (see [Overclock](#overclock)) is off by default; turned on, it runs the console above
+its stock clocks. Both are your own choice and risk.
 
 ## Credits
 

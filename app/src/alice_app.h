@@ -138,8 +138,8 @@ class AliceApp : public rex::ReXApp {
   void OnPostInitLogging() override { sa2::enh::Resolve(); }
 
   void OnPreSetup(rex::RuntimeConfig& config) override {
-    // Handheld: the docked clocks, GPU 768 MHz and memory 1600 (alice_handheld_clocks.cpp; at 460.8 MHz, sa2_gpu_boost,
-    // the console run of 2026-10-20 was GPU-bound at 38-47 fps; the first one, at 307.2 MHz, at 32).
+    // The clocks (alice_handheld_clocks.cpp): stock by default; the player's alice.toml can raise the CPU and the
+    // handheld GPU (at 460.8 MHz, sa2_gpu_boost, the console run of 2026-10-20 was GPU-bound at 38-47 fps).
     alice::clocks::Start();
     if (banjo::renut_gpu::Active()) {
       renut::gpu::ConfigureRuntime(config);

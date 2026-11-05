@@ -1,5 +1,6 @@
-// Alice: the handheld clocks (alice_handheld_clocks.cpp): GPU 768 MHz and memory 1600 MHz in handheld mode,
-// held while the game runs; or sa2_gpu_boost's 460.8 MHz profile (alice_handheld_gpu_mhz = 460).
+// Alice: the clocks (alice_handheld_clocks.cpp). Default: the console's stock clocks, nothing touched. Opt-in: the CPU
+// held (alice_cpu_mhz), the handheld GPU held up to 768 MHz with memory 1600, or sa2_gpu_boost's 460.8 MHz profile
+// (alice_handheld_gpu_mhz = 460).
 #pragma once
 
 namespace alice::clocks {
