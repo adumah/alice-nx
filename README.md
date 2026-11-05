@@ -93,6 +93,17 @@ English, German, Spanish (Spain), French, Italian and partly Japanese. The game 
 user_language = 5   # 1 English (default), 2 Japanese, 3 German, 4 French, 5 Spanish, 6 Italian
 ```
 
+**How to change it:**
+
+1. On the SD card, open the folder `/switch/alice-nx/` (where `alice.nro` is).
+2. Open `alice.toml` in a text editor, or create it there if it does not exist (a plain text file with exactly that
+   name).
+3. Add one line with your language's number, for example Spanish:
+   ```toml
+   user_language = 5
+   ```
+4. Save the file and start the game again. To go back to English, set `user_language = 1` or delete the line.
+
 Spanish works on the console with `user_language = 5`. Reports on the other languages are welcome.
 
 ## American McGee's Alice (the original game)
