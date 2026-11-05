@@ -28,7 +28,8 @@ Taken on a Switch Lite (handheld) with this port.
 
 > [!NOTE]
 > **A real native port.** This is a full static recompilation, made with ReXGlue, of the Xbox 360 game itself
-> (Unreal Engine 3). It is **not** a fork of another game's port, and **not** an Autorun, Carafe or Winlator package. No
+> (Unreal Engine 3). It is **not** a re-skin of another game's port (the tools come from sa2-nx; the game is recompiled
+> from scratch), and **not** an Autorun, Carafe or Winlator package. No
 > emulator and no run-time translator (no Wine, no Box64/FEX, no JIT) runs while you play. The game's PowerPC code and
 > its shaders are converted once, ahead of time, when you build the port. What runs on the Switch is native ARM code
 > drawing with the Switch's own graphics API.
