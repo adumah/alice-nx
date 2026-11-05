@@ -84,7 +84,16 @@ English, German, Spanish (Spain), French, Italian and partly Japanese. The game 
 user_language = 5   # 1 English (default), 2 Japanese, 3 German, 4 French, 5 Spanish, 6 Italian
 ```
 
-Not tested yet in a language other than English: reports are welcome.
+Spanish works on the console with `user_language = 5`. The other languages are not tested
+yet: reports are welcome.
+
+## American McGee's Alice (the original game)
+
+The main menu's **American McGee's Alice** entry is not available in this port: on the Xbox 360 the original game was a
+separate download (unlocked by the Online Pass), not part of the disc, and it is not included here. A separate
+open-source remake of it, [Looking Glass](https://github.com/looking-glass-project/LookingGlass) (Windows; an
+[Android edition](https://github.com/Player124413/Looking-Glass-android-edition) too), is in development; a Switch port
+of it may come later.
 
 ## Known issues
 
