@@ -1,4 +1,4 @@
-# alice-nx
+# Alice: Madness Returns Nintendo Switch Port
 
 An unofficial, fan-made port of the Xbox 360 game **Alice: Madness Returns** to the **Nintendo Switch**,
 made by static recompilation with [ReXGlue](https://github.com/rexglue/rexglue-sdk). Built on
