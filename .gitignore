@@ -38,3 +38,4 @@ tools/find_calls.py
 tools/pointer_fixpoint.py
 tools/switch_profile_report.py
 tools/d3d/
+trailer/
