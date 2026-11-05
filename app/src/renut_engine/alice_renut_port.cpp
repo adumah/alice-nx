@@ -1,4 +1,4 @@
-// Monster High: the globals Renut's renderer links against that sa2-nx defines in SA2-specific files (its native
+// Alice: the globals Renut's renderer links against that sa2-nx defines in SA2-specific files (its native
 // renderer, its capture, its hot-guest code). Same definitions and defaults as sa2-nx's PC build.
 
 #include <atomic>

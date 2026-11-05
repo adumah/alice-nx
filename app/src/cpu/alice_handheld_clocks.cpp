@@ -1,4 +1,4 @@
-// Monster High: the handheld clocks (alice_handheld_gpu_mhz, alice_handheld_emc_1600).
+// Alice: the handheld clocks (alice_handheld_gpu_mhz, alice_handheld_emc_1600).
 //
 // The first console runs with sa2_gpu_boost (GPU 460.8 MHz, memory 1331.2) were GPU-bound: 21-27 ms of GPU work a
 // frame in gameplay, 38-47 fps (log of 2026-10-20 21:28; the scene's shadow pass, resolves and three scene shaders,

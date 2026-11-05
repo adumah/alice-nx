@@ -5,17 +5,14 @@
 #   tools/build_from_disc.sh <your extracted disc folder | your .iso> [options]
 #
 #   --jobs N            compile jobs (default 4: the translated game needs about 10 GB of memory at -j 4)
-#   --skip-capture      do not open the PC game to capture shaders (use the ones already captured)
-#   --add-captures DIR  add shaders captured elsewhere first, e.g. the Switch's /switch/alice-nx/shader_capture
-#                       copied to the PC
 #
-# Result: out/nx/sdcard/switch/alice-nx (the NRO and your game files): copy out/nx/sdcard/switch to the card's root.
+# Result: out/nx/sdcard/switch/alice-nx (the NRO, the shader cache and your game files): copy out/nx/sdcard/switch to
+# the card's root.
 #
-# The game's shaders: the game builds them while it plays (they are not stored plainly in its files), so the build
-# can only translate the ones it has seen. The first time, this script opens the PC build: play for a while (the
-# menus, making a ghoul, a few classes and places), then close it. It then counts what was captured against
-# tools/renut/known_shaders.txt. A shader the Switch build lacks is drawn as nothing; the console captures it to
-# /switch/alice-nx/shader_capture, and --add-captures with that folder adds it at the next run.
+# The game's shaders: every one is extracted from the game's cooked packages (tools/renut/extract_shaders.sh), so no
+# playing is needed. The PC build translates them, tools/renut/switch_shaders.sh makes their Switch form, and
+# tools/renut/precompile_all_variants.py compiles every variant a draw can need into deko3d_shaders.bin, so the
+# console compiles none while playing.
 #
 # Needs: Linux x86-64 with clang, CMake 3.25+, Ninja, Python 3, Git, a Vulkan driver, the
 # X11/XCB and Wayland development files, and devkitPro (devkitA64, libnx, deko3d, switch-tools).
@@ -24,15 +21,11 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 sa2="${SA2_NX:-$root/../sa2-nx}"
 sa2_commit="adf3a4eee524dcca5cd7c1b42454ddb8a09124a1"
 jobs=4
-capture=1
-add_captures=""
 game=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --jobs) jobs="$2"; shift 2 ;;
-    --skip-capture) capture=0; shift ;;
-    --add-captures) add_captures="$2"; shift 2 ;;
-    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) game="$1"; shift ;;
   esac
 done
@@ -76,43 +69,18 @@ step "The code generator and shader tools (once)"
 step "Translating the game's code (about 3 minutes)"
 "$root/tools/codegen.sh"
 
-step "The PC build (the first one takes a while)"
+step "Every shader from the game's packages"
+"$root/tools/renut/extract_shaders.sh"
+
+step "The PC build (the first one takes a while; it also translates the shaders)"
 "$root/tools/build_pc.sh" -j "$jobs"
-
-dump="$root/out/renut_shader_dump"
-mkdir -p "$dump"
-if [[ -n "$add_captures" ]]; then
-  step "Adding the shaders captured in $add_captures"
-  n=0
-  for f in "$add_captures"/ps_*.bin "$add_captures"/vs_*.bin; do
-    [[ -f "$f" && ! -f "$dump/$(basename "$f")" ]] || continue
-    cp "$f" "$dump/"; n=$((n + 1))
-  done
-  echo "$n new"
-fi
-
-count_shaders() {
-  local have=0 known
-  known=$(grep -v '^#' "$root/tools/renut/known_shaders.txt" | wc -l)
-  while read -r name; do [[ -f "$dump/$name.bin" ]] && have=$((have + 1)); done \
-    < <(grep -v '^#' "$root/tools/renut/known_shaders.txt")
-  echo "$have of the $known known shaders captured ($(ls "$dump" | grep -c '\.bin$') in all)"
-  [[ $have -ge $known ]]
-}
-
-if [[ $capture -eq 1 ]] && ! count_shaders; then
-  step "Capturing the game's shaders on the PC"
-  echo "The PC game opens now with the renderer the Switch uses. Play for a while: the menus, making a ghoul, a"
-  echo "few classes and places. Each new place adds shaders. Close the window when you are done."
-  read -r -p "Press Enter to start... " _
-  "$root/tools/run.sh" --sa2_renderer=renut || true
-  step "Adding them to the PC build"
-  "$root/tools/build_pc.sh" -j "$jobs"
-fi
-count_shaders || echo "Missing ones are drawn as nothing on the Switch until captured (see the top of this script)."
 
 step "The game's shaders for the Switch"
 "$root/tools/renut/switch_shaders.sh"
+
+step "Every shader variant, compiled for the console (the longest step)"
+[[ -f "$root/out/deko3d_shaders/deko3d_shaders.bin" ]] ||
+  python3 -I "$root/tools/renut/precompile_all_variants.py" --jobs "$jobs"
 
 step "The Switch build"
 "$root/tools/build_switch.sh" -j "$jobs"
@@ -121,10 +89,10 @@ python3 "$root/tools/check_switch_build.py" --sdk-vulkan /nonexistent | tail -n 
 step "The SD card folder"
 "$root/tools/package_switch.sh" --with-game
 
-cat <<EOF
+cat <<DONE
 
 Done: $root/out/nx/sdcard/switch/alice-nx
 Copy out/nx/sdcard/switch to the root of your Switch's SD card, then start the game from the homebrew menu opened
-through a game (hold R while starting a game), not from the album. The first start packs your game files into one
-file and takes 4 to 7 minutes on a black screen: let it finish. That copy is for your own console only.
-EOF
+through a game (hold R while starting a game), not from the album. Everything in that folder is for your own console
+only: never share it.
+DONE

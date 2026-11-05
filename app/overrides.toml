@@ -128,7 +128,7 @@ longjmp_address = 0x82DBA440
 "0x82D568D8" = { }  # 5 in the gap, then the registered tail sub_82D568EC, pointer at 0x82034970
 "0x82D715F0" = { }  # 5 instructions, pointer at 0x82035238
 "0x82D71950" = { }  # 8 instructions, pointer at 0x82035244
-"0x82DD355C" = { share_registers = true }  # stage B: see the end of this file. 4 instructions, pointer at 0x821FB1B0
+"0x82DD355C" = { }  # 4 instructions, pointer at 0x821FB1B0
 "0x82DE2928" = { }  # 68 in the gap, then the registered tail sub_82DE2A38, sub_82DE2A74, pointer at 0x820400C8
 "0x82DE2A88" = { }  # 26 in the gap, then the registered tail sub_82DE2AF0, sub_82DE2B0C, pointer at 0x820400D4
 "0x82DE2B20" = { }  # 68 in the gap, then the registered tail sub_82DE2C30, sub_82DE2C6C, pointer at 0x820400D0
@@ -195,11 +195,3 @@ longjmp_address = 0x82DBA440
 "0x82F99740" = { }  # 2 instructions, pointer at 0x8205D218
 "0x82F99748" = { }  # 2 instructions, pointer at 0x8205D21C
 "0x82F99750" = { }  # 6 instructions, pointer at 0x8205D23C
-# Stage B (non_volatile_as_local, 2026-11-04), tools/read_before_write.py on code generated with it and without marks
-# (out/rbw_report.txt, 15 functions): 0x82DD355C is a piece of sub_82DD2D48 (reached by its `beq 0x82dd355c`, three
-# call sites there) that reads the parent's r31 frame pointer first (`addi r12,r31,320`): share_registers. The rest
-# are not reads of a caller's value: subfe rX,rX,rX / xor rX,rX,rX idioms (82A5B2B0, 82C31A58, 82DD42E0, 82DD4670,
-# 82DD6500: the result does not depend on the register), the setjmp call sites' env copies (82CEAA78 ... 82CEB3C8:
-# saved and restored as they are), setjmp itself (82DBA170, replaced by ppc_setjmp at its call sites), and 82FE1488
-# (an ordinary function with __savegprlr/__savevmx, its v120/v121/v125 reads on a path the dataflow cannot rule out;
-# share_registers would elide its save/restore helpers, which the audit's notes call harmful).

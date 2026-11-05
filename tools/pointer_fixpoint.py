@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copy of sa2-nx tools/pointer_fixpoint.py for Monster High (alice): manifest name, sa2-nx tool and generator paths,
+# Copy of sa2-nx tools/pointer_fixpoint.py for Alice (through mhnwis-nx): manifest name, sa2-nx tool and generator paths,
 # Default.xex, and tools/codegen.sh instead of codegen.ps1. Everything else is unchanged.
 """Declares the functions that are only reachable through code pointers stored in data (vtables, callback tables,
 the CRT's initializer table), repeating until no new one qualifies.

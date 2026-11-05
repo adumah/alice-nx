@@ -15,9 +15,9 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 sa2="${SA2_NX:-$root/../sa2-nx}"
 build="$root/out/nx"
 jobs="${2:-$(nproc)}"
-# As tools/build_pc.sh: Renut stays out until it's retargeted to Alice (tools/renut/retarget_alice.py). Without it,
-# the NRO has no renderer: such a build only checks that the game's code compiles and links for the console.
-renut="${ALICE_RENUT:-OFF}"
+# Renut is the console's only renderer (there is no emulated GPU there). ALICE_RENUT=OFF builds an NRO without it,
+# which only checks that the game's code compiles and links for the console.
+renut="${ALICE_RENUT:-ON}"
 export DEVKITPRO="${DEVKITPRO:-/opt/devkitpro}"
 stub="$root/out/nvk-stub"
 if [[ ! -f "$stub/lib/libvulkan.a" ]]; then

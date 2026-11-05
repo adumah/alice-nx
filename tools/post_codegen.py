@@ -1,65 +1,32 @@
 #!/usr/bin/env python3
-"""The post-codegen steps of the codegen flavour (alice-nx, after mk9-nx's and sa2-nx's tools/post_codegen.py).
+"""After every codegen: app/generated/codegen_flavor.txt, the codegen flavour's name in the first "[enh]" log line.
 
-Run after EVERY codegen: by tools/codegen.sh and by the PC build itself (app/CMakeLists.txt appends this script to
-the generator's command, which the build re-runs on its own when an input changes; that would otherwise drop the steps).
+Run by tools/codegen.sh and by the PC build itself (app/CMakeLists.txt appends this script to the generator's command,
+which the build re-runs on its own when an input changes).
 
-  - the flavour is read from app/codegen_flavor.toml (tools/codegen.sh --flavor): "optimised" when it sets any key;
-  - optimised: tools/pch_no_volatile.py + tools/loop_barriers.py (required together) and tools/direct_calls.py --redo;
-  - both: app/generated/codegen_flavor.txt (the build's name in the first "[enh]" log line), written only on change.
+The flavour is app/codegen_flavor.toml (included by app/alice_manifest.toml): "classic" when it sets no key, otherwise
+"optimised: " and its keys. The file is written only when its text changes, so the build does not reconfigure for
+nothing.
+
+alice-nx (2026-11-05): the post-codegen rewrites of sa2-nx's optimised flavour (no-volatile pch, loop barriers, direct
+calls) and its stage B options (non_volatile_as_local, elide_lr_stores) glitched Alice's textures on the console in
+every combination tried (docs/alice-notes.md, 2026-11-03/04); they were removed from this repository. sa2-nx keeps the
+tools.
 
   python3 tools/post_codegen.py
 """
 import os
 import re
-import subprocess
-import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(ROOT, 'app')
 GEN = os.path.join(APP, 'generated')
 
 
-def run(*args):
-    result = subprocess.run([sys.executable, *args], cwd=ROOT)
-    if result.returncode != 0:
-        sys.exit(f'post_codegen: {os.path.basename(args[0])} failed ({result.returncode})')
-
-
 def main():
     flavor_toml = open(os.path.join(APP, 'codegen_flavor.toml'), encoding='utf-8').read()
-    optimised = re.search(r'^\s*[a-z_]+\s*=\s*true', flavor_toml, re.M) is not None
-    flavor = 'optimised' if optimised else 'classic'
-    # alice-nx (2026-11-03, bisecting the console's glitched picture): '# alice_post_steps = false' in the flavour
-    # file keeps the generator options but skips the post-codegen rewrites (no-volatile pch, loop barriers, direct
-    # calls).
-    post_steps = re.search(r'^#\s*alice_post_steps\s*=\s*(false|direct_calls)', flavor_toml, re.M) is None
-    if optimised and not post_steps:
-        flavor = 'optimised codegen without post steps:'
-        flavor += ' ' + ', '.join(re.findall(r'^\s*([a-z_]+)\s*=\s*true', flavor_toml, re.M))
-        flavor = flavor.replace(' codegen without', ' without')
-    tools = os.path.join(ROOT, 'tools')
-    gen = os.path.join(GEN, 'default')
-    # alice-nx (2026-11-04, bisect): '# alice_post_steps = direct_calls' runs only tools/direct_calls.py.
-    direct_only = re.search(r'^#\s*alice_post_steps\s*=\s*direct_calls', flavor_toml, re.M) is not None
-    if direct_only:
-        post_steps = False
-        flavor = flavor.replace(' without post steps:', ' with direct calls only:')
-        os.environ.setdefault('REXSDK_DIR', os.path.join(ROOT, '..', 'sa2-nx', 'sdk'))
-        run(os.path.join(tools, 'direct_calls.py'), '--redo', '--gen', gen)
-    # alice-nx (2026-11-04, bisect): '# alice_post_steps = no_direct_calls' runs the no-volatile pch and the loop
-    # barriers but not tools/direct_calls.py.
-    no_direct = re.search(r'^#\s*alice_post_steps\s*=\s*no_direct_calls', flavor_toml, re.M) is not None
-    if optimised and post_steps:
-        run(os.path.join(tools, 'pch_no_volatile.py'), os.path.join(gen, 'alice_pch.h'))
-        # REQUIRED with the line above: without barriers GCC turns guest polling loops into infinite loops.
-        run(os.path.join(tools, 'loop_barriers.py'), gen)
-        if no_direct:
-            flavor += ' without direct calls'
-        else:
-            os.environ.setdefault('REXSDK_DIR', os.path.join(ROOT, '..', 'sa2-nx', 'sdk'))
-            run(os.path.join(tools, 'direct_calls.py'), '--redo', '--gen', gen)
-    text = flavor if not post_steps and optimised else f'{flavor} codegen'
+    keys = re.findall(r'^\s*([a-z_]+)\s*=\s*true', flavor_toml, re.M)
+    text = 'optimised: ' + ', '.join(keys) if keys else 'classic'
     path = os.path.join(GEN, 'codegen_flavor.txt')
     try:
         old_text = open(path, encoding='utf-8').read()
@@ -68,7 +35,7 @@ def main():
     if old_text != text:
         with open(path, 'w', encoding='utf-8', newline='\n') as f:
             f.write(text)
-    print(f'post_codegen: {flavor} codegen steps done')
+    print(f'post_codegen: flavour "{text}"')
 
 
 if __name__ == '__main__':

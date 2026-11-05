@@ -1,4 +1,4 @@
-// Monster High: New Ghoul in School: the app (rex::ReXApp hooks). Renderer chosen at boot (sa2_renderer): the SDK's
+// Alice: Madness Returns: the app (rex::ReXApp hooks). Renderer chosen at boot (sa2_renderer): the SDK's
 // emulated Xenos GPU ("xenos", the default and the reference) or Renut's Direct3D-level renderer ("renut", the route to
 // the Switch: docs/d3d-census.md).
 
@@ -45,9 +45,8 @@ class AliceApp : public rex::ReXApp {
   // Defaults applied before alice.toml (which may override any of them). The first boot ran without a GPU
   // ("VdInitializeRingBuffer: no GPU emulation loaded (gpu_plugin not set)", 2026-10-20): the emulated Xenos GPU is a
   // plugin, built by GPU_PLUGINS xenos in CMakeLists.txt and loaded by this setting.
-  // On the Switch there is no emulated GPU: Renut on deko3d (sa2-nx's sa2_switch_defaults.toml), the game files
-  // packed into one file on the SD at the first start (asset_pack_build), and the log on (logs/ next to the NRO: the
-  // first start's packing progress, and what a bug report needs). The GPU profile of the console tests is off
+  // On the Switch there is no emulated GPU: Renut on deko3d (sa2-nx's sa2_switch_defaults.toml), the game files read
+  // from game_root/ next to the NRO, and the log on (logs/ next to the NRO: what a bug report needs). The GPU profile of the console tests is off
   // (renut_gpu_profile = 10.0 and banjo_renut_diag_gpu_shaders = true in alice.toml turn it on again).
   std::string_view BuiltInConfig() const override {
 #if REX_PLATFORM_SWITCH
@@ -82,8 +81,11 @@ class AliceApp : public rex::ReXApp {
            // {} / {904} (vertex) and {} / {909} (pixel), all compiled on the PC into the SD card's DKSH cache
            // (tools/renut/precompile_all_variants.py): no shader compiles while playing.
            "banjo_deko3d_vs_outputs = false\n"
-           "asset_pack = true\n"
-           "asset_pack_build = true\n"
+           // alice-nx (2026-11-05): no asset pack. The game data is 4,535 MB, over FAT32's 4 GB file limit, so the SDK
+           // could never build one; trying cost 25 s of black screen at every start (out/nxlink_release.log,
+           // 00:59:41.646 -> 01:00:06.612). The files are read from game_root/ next to the NRO.
+           "asset_pack = false\n"
+           "asset_pack_build = false\n"
            "log_level = \"info\"\n"
            "log_to_file = true\n"
            // The face buttons by letter, as other Switch games: the Switch's A acts as the Xbox A (the SDK's default

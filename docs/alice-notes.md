@@ -503,3 +503,25 @@ played, though, and the spikes left here are in places the console has not seen.
   drawn** (shot at 100 s), no bindless-table warning. The user: the body went missing **after obtaining the knife**.
   Next: Continue from that checkpoint on the console with the log (missing at once -> tied to the place; only after a
   while -> the texture table pressure).
+
+### Clean-up before publishing (2026-11-05)
+
+- Removed (in git history; sa2-nx keeps the tools): the optimised flavour's post-codegen rewrites and stage B audit
+  (tools/direct_calls.py, pch_no_volatile.py, loop_barriers.py, find_self_loops.py, read_before_write.py,
+  app/perf_overrides.toml, codegen.sh --flavor), the bisect CMake options (ALICE_GUEST_VOLATILE,
+  ALICE_GENERATED_WRAPV, ALICE_SWITCH_LTO), the stage B share_registers mark; the one-time Renut retargeting scripts
+  (tools/renut/retarget.py, retarget_alice.py: applied; the tables are in docs/d3d-census.md); three Renut sources no
+  build compiled (d3d/hooks/state.cpp, guest/photo_capture.cpp, guest/widescreen.cpp: Nuts & Bolts game code);
+  tools/renut/known_shaders.txt (Monster High's 1,699 shader hashes: 0 of them are Alice's).
+- tools/post_codegen.py only records the flavour's name now ("optimised: skip_msr, ...").
+- Fixed: tools/build_pc.sh and build_switch.sh default to ALICE_RENUT=ON (OFF built an NRO with no renderer, and
+  tools/build_from_disc.sh never set it); build_from_disc.sh follows Alice's shader pipeline (extract_shaders.sh,
+  switch_shaders.sh, precompile_all_variants.py) instead of Monster High's play-to-capture; package_switch.sh puts
+  deko3d_shaders.bin next to the NRO; THIRD_PARTY_NOTICES.md names this game; file headers and 2026-10 tags renamed
+  from mhnwis-nx by the bootstrap say Alice / mhnwis-nx again.
+- **Start-up 25 s faster:** asset_pack / asset_pack_build off on the Switch. The SDK tried to pack game_root at every
+  start and gave up (4,535 MB, over FAT32's 4 GB: out/nxlink_release.log 00:59:41.646 -> 01:00:06.612, nothing else
+  running).
+- Decals on by default again (the user: the Shrink sense's signs are decals); the square near Alice is the oil decal.
+- The decals-on run (2026-11-05 02:0x) also hit the bindless table at three quarters (02:18:19, 5,970 cold textures
+  released); the user: Alice's body fine throughout. So the table pressure alone does not hide her body.

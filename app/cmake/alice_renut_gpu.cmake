@@ -1,6 +1,6 @@
-# Renut's Direct3D-level renderer for Monster High (reNut by masterspike52, through banjo-nx and sa2-nx; sa2-nx's
+# Renut's Direct3D-level renderer for Alice (reNut by masterspike52, through banjo-nx, sa2-nx and mhnwis-nx; sa2-nx's
 # cmake/sa2_renut_gpu.cmake, PC part). The renderer's code is app/src/renut_engine, sa2-nx's with its hooks retargeted
-# to this game's Direct3D (tools/renut/retarget.py, docs/d3d-census.md). Its third-party code (plume, Renut's
+# to this game's Direct3D (docs/d3d-census.md). Its third-party code (plume, Renut's
 # XenosRecomp with DXC, zstd, smol-v and xxHash, Dear ImGui) and tools are sa2-nx's, from the tree beside this one.
 #
 # An OBJECT library, not a static one: its hooks replace the generated code's weak sub_X definitions, and a static

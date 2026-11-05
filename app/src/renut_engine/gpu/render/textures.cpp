@@ -26,7 +26,7 @@
 
 #include <rex/cvar.h>
 
-// alice (2026-10-20): Monster High's engine (Torus) binds most textures by writing the device's fetch constant
+// mhnwis-nx (2026-10-20): Monster High's engine (Torus) binds most textures by writing the device's fetch constant
 // (m_Constants.TextureFetch, +0x480) directly, the XDK's inline path, leaving the D3D slot (+12920) null: the game's
 // SetTexture (sub_82661278) runs ~48 times a frame against 388 draws, and a draw log of the intro showed every slot
 // null at every draw while the fetch constants held textures. With a null slot Renut bound its null texture: the

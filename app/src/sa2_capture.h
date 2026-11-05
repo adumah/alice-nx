@@ -1,4 +1,4 @@
-// Monster High: the two lockstep-capture calls Renut's Swap hook makes (sa2-nx's sa2_capture.h, whose recorder is
+// Alice: the two lockstep-capture calls Renut's Swap hook makes (sa2-nx's sa2_capture.h, whose recorder is
 // SA2's). This port has no lockstep recorder: test screenshots come from alice_screenshot.cpp.
 
 #pragma once

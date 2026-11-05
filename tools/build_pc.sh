@@ -7,10 +7,10 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 sa2="${SA2_NX:-$root/../sa2-nx}"
 build="$root/out/pc"
 jobs="${2:-$(nproc)}"
-# ALICE_RENUT=ON links Renut's renderer (its hooks are retargeted to Alice: docs/d3d-census.md); it then runs with
-# --sa2_renderer=renut, and the emulated GPU stays the default. Each new shader it meets is captured to
-# out/pc/shader_capture/ and translated by the next build. Off by default while its picture is black.
-renut="${ALICE_RENUT:-OFF}"
+# Renut's renderer is linked (ALICE_RENUT=OFF leaves it out); it then runs with --sa2_renderer=renut, and the emulated
+# GPU stays the PC's default and reference. Each new shader it meets is captured to out/pc/shader_capture/ and
+# translated by the next build.
+renut="${ALICE_RENUT:-ON}"
 mkdir -p "$root/out"
 if [[ ! -f "$build/build.ninja" ]]; then
   cmake -S "$root/app" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DALICE_RENUT_RENDERER="$renut" \

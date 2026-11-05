@@ -239,7 +239,7 @@ uint2 getTexture2DDimensions(Texture2D<float4> texture)
 // host renders at a ratio of the guest resolution, and the textures resolved from its render
 // targets are that ratio of their guest size (rounded); texel offsets and texel coordinates are in
 // guest texels, so the sizes the fetches use are the guest's.
-// alice (2026-10-20): bits 20-25 carry the fetch constant's exponent adjust (render/draw.cpp), so the index itself
+// mhnwis-nx (2026-10-20): bits 20-25 carry the fetch constant's exponent adjust (render/draw.cpp), so the index itself
 // is 20 bits (the bindless heaps have 8192 entries).
 #define RENUT_DESCRIPTOR_INDEX_MASK 0x000FFFFFu
 #define RENUT_RESOLUTION_SCALE_SHIFT 26u
@@ -249,7 +249,7 @@ uint renutDescriptor(uint resourceDescriptorIndex)
     return resourceDescriptorIndex & RENUT_DESCRIPTOR_INDEX_MASK;
 }
 
-// alice (2026-10-20): the fetch constant's exponent adjust (dword 3 bits 13-18, signed), which the GPU applies to a
+// mhnwis-nx (2026-10-20): the fetch constant's exponent adjust (dword 3 bits 13-18, signed), which the GPU applies to a
 // fetched value as a factor of 2^adjust. Monster High's FXAA (the console FXAA 3.11) binds the scene three times, at
 // adjust 0, -1 and -2 (its sourceTexExpBiasNegOne / NegTwo); read unscaled, its edge test and sharpening overshot and
 // drew bright outlines on every edge.

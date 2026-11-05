@@ -63,8 +63,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 - `app/src/renut_engine` is sa2-nx's copy of **reNut** by masterspike52 (https://github.com/masterspike52/reNut), the
   Direct3D-level renderer, as **banjo-nx** (Banjo-Kazooie: Nuts & Bolts) carries it with its deko3d back end and
-  shader pipeline, retargeted by sa2-nx to SA2 and here to Monster High (`tools/renut/retarget.py`,
-  `docs/d3d-census.md`). reNut has no licence file; its author permits reuse by these ports. banjo-nx's and
+  shader pipeline, retargeted by sa2-nx to SA2, by mhnwis-nx to Monster High and here to Alice (the address
+  tables: `docs/d3d-census.md`). reNut has no licence file; its author permits reuse by these ports. banjo-nx's and
   sa2-nx's parts are GPL-3.0.
 - `app/src/cpu/sa2_enhancements.*`, `app/src/me/sa2_render_mode.*` and `app/src/me/me_platform_compat.h` are sa2-nx's
   files, taken as they are (GPL-3.0).
@@ -91,8 +91,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Game
 
-Monster High: New Ghoul in School (developed by Torus Games, published by Little Orbit; Monster High is a trademark
-of Mattel, Inc.) is not part of this repository, in any form. See the disclaimer in `README.md`. The homebrew menu
+Alice: Madness Returns (developed by Spicy Horse, published by Electronic Arts; a trademark of Electronic Arts Inc.)
+is not part of this repository, in any form. See the disclaimer in `README.md`. The homebrew menu
 icon is made at build time from the player's own disc (`tools/disc_icon.py`) and is not in this repository; the
 fallback icon (`app/switch/icon.jpg`, drawn by `tools/make_icon.py`) is original artwork, with no art from the game
-or Mattel.
+or its publisher.
