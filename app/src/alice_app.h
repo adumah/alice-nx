@@ -66,7 +66,9 @@ class AliceApp : public rex::ReXApp {
            // applied, one under Alice shows as a square); the particle LOD bias dropped (it hid the oil on the floors
            // beyond a few metres); Renut's shader specialisations off: one variant per shader instead of several, so
            // fewer compiles while playing (the first-use spikes).
-           "alice_decals = false\n"
+           // alice-nx (2026-11-05, the user): decals back on: the Shrink sense's hidden signs on the walls are decals.
+           // The square near Alice (the oil decal, to fix) is the smaller flaw.
+           "alice_decals = true\n"
            "alice_motion_blur = false\n"
            // alice-nx (2026-11-04, the user: no blur at all): radial blur and depth of field off.
            "alice_radial_blur = false\n"
