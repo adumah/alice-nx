@@ -79,8 +79,13 @@ step "The game's shaders for the Switch"
 "$root/tools/renut/switch_shaders.sh"
 
 step "Every shader variant, compiled for the console (the longest step)"
-[[ -f "$root/out/deko3d_shaders/deko3d_shaders.bin" ]] ||
+# Made again whenever switch_shaders.sh remade the shaders (an update), so the cache never lags behind the NRO.
+cache="$root/out/deko3d_shaders/deko3d_shaders.bin"
+if [[ ! -f "$cache" || "$root/out/deko3d_shaders/glsl_opt" -nt "$cache" ]]; then
   python3 -I "$root/tools/renut/precompile_all_variants.py" --jobs "$jobs"
+else
+  echo "deko3d_shaders.bin is up to date"
+fi
 
 step "The Switch build"
 "$root/tools/build_switch.sh" -j "$jobs"

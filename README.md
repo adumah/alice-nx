@@ -68,6 +68,8 @@ switches you can change in `alice.toml` (shown with the Switch default):
 Other improvements, all borrowed from the ports in [Credits](#credits):
 - **No shader stutter:** every shader variant the game can draw with is compiled on your PC into
   `deko3d_shaders.bin`, so the console compiles none while you play (the idea from mk9-nx's build-time shader cache).
+  The build makes it for you; it covers the default renderer settings, so leave the `banjo_*` keys alone in
+  `alice.toml` or the console starts compiling shaders again.
 - **Faster game code:** the recompiled code skips the Xbox 360's interrupt fences and keeps several PowerPC registers
   in native ones (`skip_msr` and the register locals, from sa2-nx, masseffect-nx and mk9-nx).
 - Critical sections spin briefly before they wait (`kernel_critsec_spin = 1024`, from mk9-nx).
