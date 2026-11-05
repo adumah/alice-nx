@@ -487,3 +487,19 @@ played, though, and the spikes left here are in places the console has not seen.
   CompositeDynamicLights on): out/alice_release.nro. Stage B's flavour file is kept as out/codegen_flavor_stageB.toml.
 - Console run (out/alice_release.nro, log out/nxlink_release.log): **the user: "fixed!!!"**, Alice right. The
   DKSH cache 54,179 records in 3,067 ms. This is the final build.
+- The user on the final build (2026-11-05 ~01:20): **the sky normal** (so the green sky was not radial blur / DoF
+  off). Two problems:
+  - with the Shrink sense (L) some signs on the walls are missing: decals, off since run 15 (alice_decals false, for
+    the square under Alice). To fix: that square on the PC, then decals back on.
+  - in one part **Alice's body missing, only her head and arms drawn**. Not located yet. The log
+    (out/nxlink_release.log) has the first bindless-table pressure of any run: 01:14:19.376 "bindless table nearly
+    full; 5244 idle host textures released (6145 of 8192 slots in use)" and 01:14:19.381 "three quarters full ...
+    325 cold host textures released", during the load of Chapter1_W1_VoT_04 (EvictIdleTexturesLocked /
+    EvictColdTexturesLocked, textures.cpp). Link to the missing body not shown; compare run 16 (stale reads, body
+    invisible).
+- PC check (2026-11-05 01:22, out/pc/alice = stage B PC build, Renut/Vulkan, console settings, the console's
+  checkpoint save copied to ~/.local/share/alice/...; the PC's own save backed up in out/sd_backup/pc_save_20261105_011846,
+  the console's in out/sd_backup/console_save_20261105_011846): Continue loads Vale of Tears with **Alice's whole body
+  drawn** (shot at 100 s), no bindless-table warning. The user: the body went missing **after obtaining the knife**.
+  Next: Continue from that checkpoint on the console with the log (missing at once -> tied to the place; only after a
+  while -> the texture table pressure).
