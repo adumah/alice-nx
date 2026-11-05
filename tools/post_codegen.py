@@ -47,12 +47,18 @@ def main():
         flavor = flavor.replace(' without post steps:', ' with direct calls only:')
         os.environ.setdefault('REXSDK_DIR', os.path.join(ROOT, '..', 'sa2-nx', 'sdk'))
         run(os.path.join(tools, 'direct_calls.py'), '--redo', '--gen', gen)
+    # alice-nx (2026-11-04, bisect): '# alice_post_steps = no_direct_calls' runs the no-volatile pch and the loop
+    # barriers but not tools/direct_calls.py.
+    no_direct = re.search(r'^#\s*alice_post_steps\s*=\s*no_direct_calls', flavor_toml, re.M) is not None
     if optimised and post_steps:
         run(os.path.join(tools, 'pch_no_volatile.py'), os.path.join(gen, 'alice_pch.h'))
         # REQUIRED with the line above: without barriers GCC turns guest polling loops into infinite loops.
         run(os.path.join(tools, 'loop_barriers.py'), gen)
-        os.environ.setdefault('REXSDK_DIR', os.path.join(ROOT, '..', 'sa2-nx', 'sdk'))
-        run(os.path.join(tools, 'direct_calls.py'), '--redo', '--gen', gen)
+        if no_direct:
+            flavor += ' without direct calls'
+        else:
+            os.environ.setdefault('REXSDK_DIR', os.path.join(ROOT, '..', 'sa2-nx', 'sdk'))
+            run(os.path.join(tools, 'direct_calls.py'), '--redo', '--gen', gen)
     text = flavor if not post_steps and optimised else f'{flavor} codegen'
     path = os.path.join(GEN, 'codegen_flavor.txt')
     try:

@@ -446,3 +446,44 @@ played, though, and the spikes left here are in places the console has not seen.
   has a pixel shader of exactly its source size minus the 39-byte define line.
 - LoadCache (banjo_renut_deko3d.cpp) now indexes the records from 8 MB chunks (one pass) instead of a seek and three
   reads a record: 54,179 SD round trips otherwise. It logs the time.
+
+### Stage B without LTO: still glitched (2026-11-04 evening)
+
+- Console run (out/alice_stageB.nro: stage B + all post steps + -fwrapv, ALICE_SWITCH_LTO=OFF; log
+  out/nxlink_stageB_nolto.log): CPU 1785 / GPU 768, the DKSH cache 54,179 records in 3,037 ms, 0 compiles, 30.00 fps
+  with the GPU at ~10 ms a frame in the first gameplay windows. **The user: Alice's whole body still has glitched
+  textures.** So LTO is innocent, and -fwrapv does not fix the glitch.
+- What is known: stage A without post steps right (run 11); stage A + the three post steps glitched, also volatile
+  (runs 6-7); stage B + post steps glitched (with and without LTO).
+- Next, both at once: out/alice_final_direct.nro (stage A + direct calls only + -fwrapv, built 2026-11-04 05:04,
+  never on the console) on the console, and a stage B build without direct calls
+  (`# alice_post_steps = no_direct_calls`, a new mode of tools/post_codegen.py: no-volatile pch + loop barriers only;
+  out/alice_stageB_nodirect.nro).
+- Console run (out/alice_stageB_nodirect.nro: stage B + no-volatile pch + loop barriers, no direct calls, -fwrapv, no
+  LTO; log out/nxlink_stageB_nodirect.log; the user's screenshot out/console_shots/stageB_nodirect_menu.jpg, the main
+  menu): **Alice's skin and dress a confetti of wrong texels, eyes and hair right**. So not the direct calls (alone).
+- Every glitched build so far has the loop barriers, the one right optimised build (run 11) has no post steps; the
+  no-volatile pch is ruled out by run 7 (volatile, still glitched). Suspect: tools/loop_barriers.py's narrow barrier,
+  `__asm__ __volatile__("" : "+m"(*(uint8_t (*)[0x100001000ull])base))`, under the Switch's GCC 16 (the PC's clang
+  build is right).
+- Next build (in progress): stage B with `# alice_post_steps = false` (out/alice_stageB_nopost.nro). Right -> the
+  barriers (or the pch with them) are the cause and stage B's own options stay; then try -DREX_LOOP_BARRIER_FULL.
+  Glitched -> non_volatile_as_local / elide_lr_stores.
+- Console run (out/alice_stageB_nopost.nro: stage B, `# alice_post_steps = false`, -fwrapv, no LTO; log
+  out/nxlink_stageB_nopost.log): **the user: the same glitch**. So not the post steps either.
+- The same NRO with `--alice_radial_blur=true --alice_depth_of_field=true` (log out/nxlink_stageB_nopost_blur.log;
+  the game logs `AllowRadialBlur 1`): **the same**. Not the new blur defaults.
+- Since alice_lite.nro (right) every build has had stage B's non_volatile_as_local + elide_lr_stores and -fwrapv.
+  Next build: the same code with ALICE_GENERATED_WRAPV=OFF (out/alice_stageB_nopost_nowrapv.nro).
+- Console run (out/alice_stageB_nopost_nowrapv.nro: the same code, ALICE_GENERATED_WRAPV=OFF; log
+  out/nxlink_stageB_nowrapv.log): **the user: the same**. So -fwrapv is innocent: **stage B's own options
+  (non_volatile_as_local + elide_lr_stores) glitch Alice on the console**, with or without post steps, LTO or -fwrapv.
+  The PC (clang) is right with them. Not split further yet. A candidate from sa2-nx's notes (enhancements.md,
+  "non_volatile_as_local + elide_lr_stores"): after a longjmp the setjmp caller's r14-r31 locals keep the failing
+  call's values (Alice's guest setjmp 82DBA170 / longjmp 82DBA440, the call sites 82CEAA78 ... 82CEB3C8). Also not
+  done here and done in sa2-nx before keeping them: the verify mode and the pixel tests on the PC.
+- Decision: the final build goes back to the stage A flavour (out/codegen_flavor_stageA_good.toml: skip_msr +
+  cr/ctr/xer/reserved locals, no post steps), no -fwrapv, no LTO, with today's settings (no motion/radial blur, no DoF,
+  CompositeDynamicLights on): out/alice_release.nro. Stage B's flavour file is kept as out/codegen_flavor_stageB.toml.
+- Console run (out/alice_release.nro, log out/nxlink_release.log): **the user: "fixed!!!"**, Alice right. The
+  DKSH cache 54,179 records in 3,067 ms. This is the final build.

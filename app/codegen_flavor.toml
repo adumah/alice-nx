@@ -1,11 +1,7 @@
-# alice-nx (2026-11-04): stage B, the final build's flavour. skip_msr + the register locals (right on the console since
-# run 12) plus non_volatile_as_local and elide_lr_stores (tools/read_before_write.py's audit: one share_registers mark,
-# 0x82DD355C in overrides.toml). All post-codegen steps (no-volatile pch + loop barriers + direct calls); the
-# generated code is compiled with -fwrapv (ALICE_GENERATED_WRAPV: the direct calls glitched Alice without it).
+# alice-nx bisect (2026-11-03): skip_msr + the cr/ctr/xer/reserved locals, no post-codegen steps.
+# alice_post_steps = false
 skip_msr = true
 cr_as_local = true
 ctr_as_local = true
 xer_as_local = true
 reserved_as_local = true
-non_volatile_as_local = true
-elide_lr_stores = true
