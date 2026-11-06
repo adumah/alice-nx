@@ -159,12 +159,52 @@ ones there (what you saw, where in the game, and the log from `logs/` next to `a
   an `.iso`. `Default.xex` must be title ID `45410916`, media ID `31C4B45C`, version 2 (the code generator prints
   these).
 - **A Switch with custom firmware** (Atmosphère) and about 5 GB free on the SD card (the game files are 4.5 GB).
-- **A Linux PC (x86-64) to build on**: nothing is played on it. With clang, CMake 3.25 or newer, Ninja, Python 3, Git,
+- **A PC to build on**: Linux (x86-64), or Windows 10/11 with WSL2 (see [GUI Builder](#gui-builder)); nothing is
+  played on it. With clang, CMake 3.25 or newer, Ninja, Python 3, Git,
   the X11/XCB and Wayland development files, and [devkitPro](https://devkitpro.org/) (devkitA64, libnx, deko3d,
   switch-tools).
 - About 10 GB of free memory to compile (the translated game is ~247 MB of C++; `-j 4`), and about 20 GB of disk.
 - [sa2-nx](https://github.com/ChanseyIsTheBest/sa2-nx) next to this repository, at commit
   `adf3a4eee524dcca5cd7c1b42454ddb8a09124a1` (the script below clones it): its SDK fork and tools are used to build.
+
+## GUI Builder
+
+If you would rather not type commands, `tools/installer_gui.py` is a window that does the whole build for you, on
+**Linux** and **Windows**. It builds the port from **your own copy of the game** on your own PC, exactly like the
+command below; it does not download the game or a ready-made NRO.
+
+**Linux:**
+
+```sh
+git clone https://github.com/adumah/alice-nx.git
+python3 alice-nx/tools/installer_gui.py
+```
+
+It needs Python with Tk (Arch: `tk`; Debian/Ubuntu: `python3-tk`; Fedora: `python3-tkinter`).
+
+**Windows 10/11:** the build runs inside WSL2, the Linux that comes with Windows.
+
+1. Open PowerShell as administrator, run `wsl --install`, restart, and open **Ubuntu** from the Start menu once to
+   make your user.
+2. Install [Python](https://www.python.org/downloads/) for Windows (it includes Tk).
+3. Download `tools/installer_gui.py` from this repository and double-click it. On its first build it clones this
+   repository into WSL (`~/alice-nx` there) and builds it there.
+
+Install the build tools (the [What you need](#what-you-need) list) inside Ubuntu, not in Windows: **Check
+requirements** tells you what is missing and the command to install it.
+
+Then, in the window:
+
+1. **Check requirements**: lists any missing tool, with the install command for your Linux distro.
+2. Pick your game disc: **Folder...** (the extracted disc, with `Default.xex`) or **ISO...**.
+3. **Build**: a progress bar and the live log. It takes a few hours. If it stops with an error, fix what the log
+   says and press **Build** again: finished steps are skipped. **Stop** ends the build.
+4. **Copy to SD card**: pick the card's root; the game goes to `/switch/alice-nx/` (an `alice.toml` already on the
+   card is kept).
+
+> [!NOTE]
+> The Windows version has not been tested on a Windows PC yet. Please report problems in the
+> [Issues](https://github.com/adumah/alice-nx/issues) section.
 
 ## Building for the Switch
 
