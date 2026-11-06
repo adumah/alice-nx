@@ -62,6 +62,47 @@ fi
 '''
 
 
+TITLE_ID, MEDIA_ID = 0x45410916, 0x31C4B45C  # Alice: Madness Returns, the disc this port's corrections are for
+
+
+def disc_problem(game):
+    """(ok, message) for a picked disc folder or .iso."""
+    if not game:
+        return False, "Nothing chosen yet."
+    p = Path(game)
+    if not p.exists():
+        return False, f"{p} does not exist."
+    if p.is_file():
+        if p.stat().st_size < 1 << 30:
+            return False, "This file is too small for an Xbox 360 disc image."
+        return True, "Disc image chosen: it is checked when the build extracts it."
+    xex = next((p / n for n in ("Default.xex", "default.xex") if (p / n).is_file()), None)
+    if not xex:
+        return False, f"There is no Default.xex in {p}: choose the folder you extracted the disc into."
+    import struct
+    try:
+        head = xex.open("rb").read(64 * 1024)
+        if head[:4] != b"XEX2":
+            return False, "Default.xex is not an Xbox 360 executable."
+        for i in range(struct.unpack(">I", head[0x14:0x18])[0]):
+            key, val = struct.unpack(">II", head[0x18 + 8 * i:0x20 + 8 * i])
+            if key == 0x00040006:  # execution info: media ID, version, base version, title ID
+                media, version, _, title = struct.unpack(">IIII", head[val:val + 16])
+                break
+        else:
+            return False, "Default.xex has no title ID."
+    except (OSError, struct.error) as e:
+        return False, f"Could not read Default.xex: {e}"
+    if title != TITLE_ID:
+        return False, f"This is another game (title ID {title:08X}); Alice: Madness Returns is {TITLE_ID:08X}."
+    if media != MEDIA_ID:
+        return False, (f"Alice: Madness Returns, but another release (media ID {media:08X}; this port was made "
+                       f"for {MEDIA_ID:08X}). It may not work.")
+    if not (p / "Content").exists() and not any(p.glob("*/")):
+        return False, "Default.xex is there, but the game's other files are missing: extract the whole disc."
+    return True, f"Alice: Madness Returns (title ID {title:08X}, media ID {media:08X}, version {version}): OK."
+
+
 class Runner:
     """Runs bash commands here (Linux) or inside WSL (Windows), in the repo."""
 
@@ -118,7 +159,7 @@ class Installer(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Alice: Madness Returns for Switch - builder")
-        self.geometry("860x620")
+        self.geometry("880x760")
         self.minsize(660, 480)
         self.runner = Runner()
         self.proc = None
@@ -130,40 +171,67 @@ class Installer(tk.Tk):
         self.sdcard = tk.StringVar()
         self.status = tk.StringVar(value="Pick your own game disc (an extracted folder or an .iso), then Build.")
 
+        self.mode = tk.StringVar(value="full")
+        self.disc_info = tk.StringVar(value="Nothing chosen yet.")
+
         pad = {"padx": 8, "pady": 4}
-        form = ttk.Frame(self)
-        form.pack(fill="x", **pad)
-        form.columnconfigure(1, weight=1)
 
-        def row(r, label, var, buttons):
-            ttk.Label(form, text=label).grid(row=r, column=0, sticky="w", **pad)
-            ttk.Entry(form, textvariable=var).grid(row=r, column=1, sticky="ew", **pad)
-            box = ttk.Frame(form)
-            box.grid(row=r, column=2, sticky="e")
+        def step(title):
+            box = ttk.LabelFrame(self, text=title)
+            box.pack(fill="x", padx=8, pady=(6, 2))
+            box.columnconfigure(1, weight=1)
+            return box
+
+        def row(box, r, label, var, buttons):
+            ttk.Label(box, text=label).grid(row=r, column=0, sticky="w", **pad)
+            ttk.Entry(box, textvariable=var).grid(row=r, column=1, sticky="ew", **pad)
+            bb = ttk.Frame(box)
+            bb.grid(row=r, column=2, sticky="e")
             for text, cmd in buttons:
-                ttk.Button(box, text=text, command=cmd).pack(side="left", padx=2)
+                ttk.Button(bb, text=text, command=cmd).pack(side="left", padx=2)
 
-        row(0, "Your game disc", self.game, [("Folder...", self.pick_folder), ("ISO...", self.pick_iso)])
-        row(1, "devkitPro" + (" (in WSL)" if WINDOWS else ""), self.devkitpro,
+        # 1. Your game
+        s1 = step(" 1. Choose your game ")
+        row(s1, 0, "Your game disc", self.game, [("Folder...", self.pick_folder), ("ISO...", self.pick_iso)])
+        self.disc_label = ttk.Label(s1, textvariable=self.disc_info)
+        self.disc_label.grid(row=1, column=1, columnspan=2, sticky="w", **pad)
+
+        # 2. Build
+        s2 = step(" 2. Build the port on this PC (a few hours the first time) ")
+        row(s2, 0, "devkitPro" + (" (in WSL)" if WINDOWS else ""), self.devkitpro,
             [] if WINDOWS else [("Browse...", lambda: self.pick_dir(self.devkitpro))])
-        row(2, "SD card (optional)", self.sdcard, [("Browse...", lambda: self.pick_dir(self.sdcard))])
-        ttk.Label(form, text="Compile jobs").grid(row=3, column=0, sticky="w", **pad)
-        jobs = ttk.Frame(form)
-        jobs.grid(row=3, column=1, sticky="w", **pad)
+        ttk.Label(s2, text="Compile jobs").grid(row=1, column=0, sticky="w", **pad)
+        jobs = ttk.Frame(s2)
+        jobs.grid(row=1, column=1, columnspan=2, sticky="w", **pad)
         ttk.Spinbox(jobs, from_=1, to=max(1, os.cpu_count() or 4), textvariable=self.jobs, width=4).pack(side="left")
         ttk.Label(jobs, text="  about 2.5 GB of memory each; 4 needs about 10 GB").pack(side="left")
-
-        buttons = ttk.Frame(self)
-        buttons.pack(fill="x", **pad)
-        self.check_btn = ttk.Button(buttons, text="Check requirements", command=self.check)
+        b2 = ttk.Frame(s2)
+        b2.grid(row=2, column=0, columnspan=3, sticky="w", **pad)
+        self.check_btn = ttk.Button(b2, text="Check requirements", command=self.check)
         self.check_btn.pack(side="left")
-        self.build_btn = ttk.Button(buttons, text="Build", command=self.start)
+        self.build_btn = ttk.Button(b2, text="Build", command=self.start)
         self.build_btn.pack(side="left", padx=4)
-        self.stop_btn = ttk.Button(buttons, text="Stop", command=self.stop, state="disabled")
+        self.stop_btn = ttk.Button(b2, text="Stop", command=self.stop, state="disabled")
         self.stop_btn.pack(side="left", padx=4)
-        self.copy_btn = ttk.Button(buttons, text="Copy to SD card", command=self.copy_to_sd)
-        self.copy_btn.pack(side="left", padx=4)
-        ttk.Button(buttons, text="Open result folder", command=self.open_result).pack(side="left", padx=4)
+
+        # 3. SD card
+        s3 = step(" 3. Copy it to the Switch's SD card ")
+        row(s3, 0, "SD card", self.sdcard, [("Browse...", lambda: self.pick_dir(self.sdcard))])
+        b3 = ttk.Frame(s3)
+        b3.grid(row=1, column=0, columnspan=3, sticky="w", **pad)
+        ttk.Radiobutton(b3, text="First install (everything, about 5 GB)", variable=self.mode,
+                        value="full").pack(side="left")
+        ttk.Radiobutton(b3, text="Update (only the game and its shaders; game_root is kept)", variable=self.mode,
+                        value="update").pack(side="left", padx=8)
+        b4 = ttk.Frame(s3)
+        b4.grid(row=2, column=0, columnspan=3, sticky="w", **pad)
+        self.copy_btn = ttk.Button(b4, text="Copy to SD card", command=self.copy_to_sd)
+        self.copy_btn.pack(side="left")
+        ttk.Button(b4, text="Open result folder", command=self.open_result).pack(side="left", padx=4)
+        ttk.Label(s3, foreground="#777", wraplength=800, text=(
+            "Then start the game from the homebrew menu opened through a game (hold R while starting a game), "
+            "not from the album: the album does not give it enough memory.")).grid(
+            row=3, column=0, columnspan=3, sticky="w", **pad)
 
         self.bar = ttk.Progressbar(self, maximum=len(STEPS))
         self.bar.pack(fill="x", **pad)
@@ -193,16 +261,26 @@ class Installer(tk.Tk):
         d = filedialog.askdirectory(title="Your extracted disc (the folder with Default.xex)")
         if d:
             self.game.set(d)
+            self.check_disc()
 
     def pick_iso(self):
         f = filedialog.askopenfilename(title="Your disc image", filetypes=[("Disc image", "*.iso"), ("All", "*")])
         if f:
             self.game.set(f)
+            self.check_disc()
 
     def pick_dir(self, var):
         d = filedialog.askdirectory()
         if d:
             var.set(d)
+
+    # ---- the disc check
+    def check_disc(self):
+        """Is it the disc this port was made for? Reads Default.xex's header: seconds now, not hours into a build."""
+        ok, msg = disc_problem(self.game.get().strip())
+        self.disc_info.set(msg)
+        self.disc_label.configure(foreground="#2a8a2a" if ok else "#c03030")
+        return ok
 
     # ---- log
     def append(self, text, tag=None):
@@ -256,14 +334,9 @@ class Installer(tk.Tk):
     # ---- build
     def start(self):
         game = self.game.get().strip()
-        if game and not WINDOWS:
-            p = Path(game)
-            if not p.exists():
-                messagebox.showerror("Not found", f"{p} does not exist.")
-                return
-            if p.is_dir() and not ((p / "Default.xex").exists() or (p / "default.xex").exists()):
-                messagebox.showerror("Not the game", f"There is no Default.xex in\n{p}")
-                return
+        if game and not self.check_disc():
+            messagebox.showerror("Your game", self.disc_info.get())
+            return
         self.clear()
         self.bar["value"] = 0
         self.busy(True)
@@ -360,7 +433,8 @@ class Installer(tk.Tk):
             return
         self.sdcard.set(sd)
         self.busy(True)
-        self.status.set("Copying to the SD card (about 5 GB)...")
+        update = self.mode.get() == "update"
+        self.status.set("Updating the game on the SD card..." if update else "Copying to the SD card (about 5 GB)...")
 
         def work():
             src = self.runner.result_dir()
@@ -368,8 +442,16 @@ class Installer(tk.Tk):
                 raise RuntimeError("Nothing to copy yet: build first.")
             dst = Path(sd) / "switch" / "alice-nx"
             keep = (dst / "alice.toml").read_bytes() if (dst / "alice.toml").exists() else None
-            # Real files, not links (game_root may link to your disc folder); your own alice.toml is kept.
-            shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=False)
+            if update:
+                if not (dst / "game_root").is_dir():
+                    raise RuntimeError(f"No game_root in {dst} yet: choose First install.")
+                dst.mkdir(parents=True, exist_ok=True)
+                for name in ("alice.nro", "deko3d_shaders.bin"):
+                    if (Path(src) / name).exists():
+                        shutil.copy2(Path(src) / name, dst / name)
+            else:
+                # Real files, not links (game_root may link to your disc folder); your own alice.toml is kept.
+                shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=False)
             if keep is not None:
                 (dst / "alice.toml").write_bytes(keep)
             if not WINDOWS:

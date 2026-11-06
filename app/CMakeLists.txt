@@ -64,6 +64,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         endif()
     endforeach()
 endif()
+# alice_register.cpp is one function of ~57,000 SetFunction calls, run once at start-up. GCC's optimiser spends about
+# 50 minutes on it (the longest job of the Switch build, by far); unoptimised it compiles in seconds and the start-up
+# cost is nothing next to loading the game.
+set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/generated/default/alice_register.cpp"
+                            PROPERTIES COMPILE_OPTIONS "-O0" SKIP_PRECOMPILE_HEADERS ON)
 if(REXGLUE_PLATFORM_SWITCH)
     # Where the NRO is on the SD card when no loader passes its path (an emulator): its folder holds the settings,
     # the logs, the shader caches and the game files.

@@ -193,14 +193,17 @@ It needs Python with Tk (Arch: `tk`; Debian/Ubuntu: `python3-tk`; Fedora: `pytho
 Install the build tools (the [What you need](#what-you-need) list) inside Ubuntu, not in Windows: **Check
 requirements** tells you what is missing and the command to install it.
 
-Then, in the window:
+Then follow the window's three steps:
 
-1. **Check requirements**: lists any missing tool, with the install command for your Linux distro.
-2. Pick your game disc: **Folder...** (the extracted disc, with `Default.xex`) or **ISO...**.
-3. **Build**: a progress bar and the live log. It takes a few hours. If it stops with an error, fix what the log
-   says and press **Build** again: finished steps are skipped. **Stop** ends the build.
-4. **Copy to SD card**: pick the card's root; the game goes to `/switch/alice-nx/` (an `alice.toml` already on the
-   card is kept).
+1. **Choose your game**: **Folder...** (the extracted disc, with `Default.xex`) or **ISO...**. A folder is checked
+   at once: the window reads `Default.xex` and says whether it is Alice: Madness Returns, the release this port was
+   made for (title ID `45410916`, media ID `31C4B45C`).
+2. **Build the port on this PC**: **Check requirements** lists any missing tool, with the install command for your
+   Linux distro. **Build** shows a progress bar and the live log; the first build takes a few hours. If it stops with
+   an error, fix what the log says and press **Build** again: finished steps are skipped. **Stop** ends the build.
+3. **Copy it to the Switch's SD card**: pick the card's root. **First install** copies everything (about 5 GB) to
+   `/switch/alice-nx/`; **Update** copies only `alice.nro` and the shader cache and keeps the `game_root` already
+   on the card. Your `alice.toml` on the card is always kept.
 
 > [!NOTE]
 > The Windows version has not been tested on a Windows PC yet. Please report problems in the
