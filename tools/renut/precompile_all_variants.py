@@ -14,7 +14,7 @@ are:
     otherwise.
 (907, 908, 910-912 are set only in non-default modes or for banjo-nx's listed shaders.) So each vertex shader has at
 most the variants {} and {904: 1}, each pixel shader {} and {909: 1}, and a constant a shader's GLSL does not declare
-makes no define. The text and key are tools/renut/deko3d_variant_cache.py's (plume's loadVariant): the defines whose
+makes no define. The text and key are tools/deko3d_variant_cache.py's (the base's) (plume's loadVariant): the defines whose
 value differs from the GLSL's default after the first line, FNV-1a 64 of the whole text. The console reads the cache
 next to the NRO (deko3d_shaders.bin, banjo_renut_deko3d.cpp LoadCache) and compiles only what is not in it.
 
@@ -29,7 +29,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-spec = importlib.util.spec_from_file_location('dvc', os.path.join(HERE, 'deko3d_variant_cache.py'))
+spec = importlib.util.spec_from_file_location('dvc', os.path.join(HERE, '..', 'deko3d_variant_cache.py'))
 dvc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(dvc)
 

@@ -7,9 +7,10 @@
 # archive's members are only pulled in for undefined symbols, so the hooks would silently not be linked.
 
 
-set(RENUT_SA2_NX_DIR "${REXSDK_DIR}/.." CACHE PATH "The sa2-nx tree (its app/thirdparty and tools are used)")
-set(RENUT_THIRDPARTY_DIR "${RENUT_SA2_NX_DIR}/app/thirdparty")
-set(RENUT_TOOLS_DIR "${RENUT_SA2_NX_DIR}/tools")
+# madlice-nx (ultimate): the tree is the Renut ultimate base (ultimate/assemble.sh) with Alice's game layer on it, so its
+# thirdparty (plume, XenosRecomp, uam, imgui) is app/thirdparty and its tools are the ones beside app/.
+set(RENUT_THIRDPARTY_DIR "${CMAKE_SOURCE_DIR}/thirdparty")
+set(RENUT_TOOLS_DIR "${CMAKE_SOURCE_DIR}/../tools")
 
 # The shader containers the shader cache is built from: the ones Renut captured at runtime (renut_shader_capture_dir:
 # a shader its cache lacks is written next to the executable, and the next build adds it). Game data: in the build
@@ -39,7 +40,8 @@ if(REXGLUE_PLATFORM_SWITCH)
     set(PLUME_SWITCH_DEVKITPRO "${DEVKITPRO}" CACHE PATH "" FORCE)
     set(PLUME_SWITCH_NVK_ROOT "${REXGLUE_SWITCH_NVK_SDK}" CACHE PATH "" FORCE)
     set(PLUME_SWITCH_NVK_LIBRARY "${REXGLUE_SWITCH_NVK_SDK}/lib/libvulkan.a" CACHE FILEPATH "" FORCE)
-    set(PLUME_SWITCH_NO_NVK "${REXGLUE_SWITCH_NO_NVK}" CACHE BOOL "" FORCE)
+    # The base's SDK says REXGLUE_SWITCH_NVK (OFF: no Vulkan driver linked; Renut then runs on deko3d only).
+    set(PLUME_SWITCH_NVK_LINK ${REXGLUE_SWITCH_NVK} CACHE BOOL "" FORCE)
     set(PLUME_SWITCH_UAM_DIR "${RENUT_THIRDPARTY_DIR}/uam" CACHE PATH "" FORCE)
     set(PLUME_DEKO3D ON CACHE BOOL "deko3d back end (Switch)" FORCE)
     set(BANJO_DEKO3D_HOST_SHADERS ON)
@@ -79,15 +81,16 @@ if(NOT PYTHON_EXECUTABLE)
     set(PYTHON_EXECUTABLE "${Python3_EXECUTABLE}")
 endif()
 
-# This project's copy of Renut's shader_common.h (the HLSL every translated shader includes), with the fetch
-# constant's exponent adjust applied to texture fetches (src/renut_engine/gpu/shaders/xenos/shader_common.h).
-set(RENUT_SHADER_COMMON_DIR "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/shaders/xenos")
+# shader_common.h is the base's (thirdparty/reblue-XenosRecomp/XenosRecomp): it applies the fetch constant's exponent
+# adjust itself (sasrt_renut_texture_exp_adjust), so the translator and the renderer are one generation.
 
 include("${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/gpu.cmake")
 
 add_library(alice_renut_gpu OBJECT
     "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/banjo_renut_select.cpp"
     "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/banjo_renut_tuning.cpp"
+    "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/ultimate.cpp"  # renut-ultimate: the ported fixes' switches
+    "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/sasrt_gpu_round.cpp"  # sasrt-nx's GPU rounds
     "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/banjo_renut_checks.cpp"
     "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/banjo_renut_record.cpp"
     "${CMAKE_SOURCE_DIR}/src/renut_engine/display_sync.cpp"
@@ -124,11 +127,23 @@ if(REXGLUE_PLATFORM_SWITCH)
 endif()
 renut_gpu_setup(alice_renut_gpu)
 target_compile_definitions(alice_renut_gpu PRIVATE SA2_RENUT_RENDERER=1)
-if(REXGLUE_PLATFORM_SWITCH AND REXGLUE_SWITCH_NO_NVK)
+# The base registers a hook only with KATAMARI_RENUT_HOOKS (banjo_renut_select.h); here the registered ones are Alice's
+# (d3d/hooks: device, draw, resource, shader), at Alice's functions.
+target_compile_definitions(alice_renut_gpu PRIVATE KATAMARI_RENUT_HOOKS=1)
+if(REXGLUE_PLATFORM_SWITCH AND NOT REXGLUE_SWITCH_NVK)
     # No Vulkan driver in this build: Renut on deko3d whatever sa2_renderer / renut_gpu_backend say.
-    set_property(SOURCE "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/banjo_renut_select.cpp"
-                        "${RENUT_GPU_DIR}/backend/backend.cpp"
-                 APPEND PROPERTY COMPILE_DEFINITIONS SA2_SWITCH_NO_NVK=1)
+    target_compile_definitions(alice_renut_gpu PRIVATE BANJO_SWITCH_NO_VULKAN=1 SA2_SWITCH_NO_NVK=1)
+endif()
+# The base's render-thread build option: the draw path's function-local statics without the thread-safe guard (its
+# fast path is a load-acquire that holds back every later load on the A57). Sound: these files run on the render thread.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set_property(SOURCE
+        "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/render/draw.cpp"
+        "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/guest/command_buffers.cpp"
+        "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/ultimate.cpp"
+        "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/banjo_renut_tuning.cpp"
+        "${CMAKE_SOURCE_DIR}/src/renut_engine/gpu/backend/render_thread.cpp"
+        TARGET_DIRECTORY alice_renut_gpu APPEND PROPERTY COMPILE_OPTIONS "-fno-threadsafe-statics")
 endif()
 
 target_link_libraries(alice PRIVATE alice_renut_gpu)

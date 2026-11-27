@@ -8,5 +8,6 @@ inline void SetGpuFrameMs(double) {}
 inline void SetRenderThreadMs(double) {}
 inline void RecordHostPresent() {}
 inline void SetRendererInfo(const char*, const char*) {}
+inline void FrameBoundaryAtSwap() {}  // ultimate: the base's perf/frame_stats calls it
 
 }  // namespace banjo::profiler

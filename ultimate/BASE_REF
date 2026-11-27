@@ -1,0 +1,4 @@
+# The Renut base this port is built on. Read by .github/workflows/ultimate-build.yml.
+# To take newer base work: sync your fork of the base, put its commit here, run the workflow.
+repository=BunBunMikael/renut_nx_ultimate_base
+sha=07d61ae823ec8a258697a3dcc6e60ff39655d4b9

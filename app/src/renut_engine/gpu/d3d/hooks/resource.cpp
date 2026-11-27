@@ -73,11 +73,14 @@ u32 AllocHeader(u32 size) {
   std::memset(host, 0, size);
   const u32 va = REX_KERNEL_MEMORY()->HostToGuestVirtual(host);
   std::lock_guard lock(g_owned_mutex);
-  g_owned_headers.insert(va);
+  if (g_owned_headers.insert(va).second)
+    records::MarkOwned(va, true);  // ultimate (the base's rr6_records_lockfree)
   return va;
 }
 
 bool OwnsHeader(u32 va) {
+  if (const int fast = records::OwnedFast(va); fast >= 0)  // ultimate (the base's rr6_records_lockfree)
+    return fast != 0;
   std::lock_guard lock(g_owned_mutex);
   return g_owned_headers.count(va) != 0;
 }
@@ -87,6 +90,7 @@ void FreeHeader(u32 va) {
     std::lock_guard lock(g_owned_mutex);
     if (!g_owned_headers.erase(va))
       return;
+    records::MarkOwned(va, false);  // ultimate (the base's rr6_records_lockfree)
   }
   records::FreeRaw(GuestPtr<void>(va));
 }
@@ -894,6 +898,7 @@ void D3DResource_Destroy_hook(u32 resource) {
       ReleaseHostTextureLocked(resource);
       ReleaseGuestShaderLocked(resource);
     });
+    ForgetInPlaceShader(resource);  // ultimate (the base's blur-nx #13 fix)
     DestroyGuestResource(resource);
     return;
   }
@@ -1701,5 +1706,6 @@ BANJO_RENUT_HOOK_RAW(sub_82B4B730) {
     ReleaseGuestShaderLocked(resource);
     ReleaseGuestDeclarationLocked(resource);
   });
+  ForgetInPlaceShader(resource);  // ultimate (the base's blur-nx #13 fix): after the item above is queued
   __imp__sub_82B4B730(ctx, base);
 }

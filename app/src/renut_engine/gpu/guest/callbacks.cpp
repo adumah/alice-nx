@@ -11,17 +11,29 @@
 #include <rex/cvar.h>
 #include <rex/hook.h>
 #include <rex/ppc.h>
+#include <rex/system/xthread.h>  // culdcept-nx: SetGuestWaitHook
 
 #include "renut_engine/gpu/log.h"
 #include "renut_engine/gpu/backend/render_thread.h"
 #include "renut_engine/gpu/render/textures.h"
 #include "renut_engine/gpu/banjo_renut_checks.h"  // banjo-nx (package 27c)
 
-// sa2-nx (2026-10-20): see g_waiting.
-REXCVAR_DEFINE_BOOL(sa2_renut_callbacks_fast, true, "SA2/Renderer",
+// banjo-nx (2026-10-20, from sa2-nx): see g_waiting.
+REXCVAR_DEFINE_BOOL(banjo_renut_callbacks_fast, true, "Banjo/Enhancements",
                     "Renut's renderer: every draw, clear and resolve hook first runs the guest's GPU callbacks the "
-                    "render thread has reached; with none waiting (nearly always: SA2 inserts few) it returns without "
+                    "render thread has reached; with none waiting (nearly always) it returns without "
                     "taking the two locks it took to find that out. Off: the locks every time")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
+// culdcept-nx (2026-11-19): the GPU callbacks the render thread has reached also run when a game thread enters a kernel
+// wait or a sleep (rex::system::SetGuestWaitHook), not only in Renut's D3D hooks. On the console the GPU runs them as
+// an interrupt whatever the game threads do. Culdcept Saga's movie skip waited for ever without it: the XMV renderer's
+// frames in flight are counted down by each frame's callback, its control thread polls the count with Sleep(50), and
+// no thread made another D3D call (Ryujinx, where the render thread had not yet reached the last frame's callback when
+// the movie's last hook ran; the PC's had). Off: only the hooks run them, as before.
+REXCVAR_DEFINE_BOOL(banjo_renut_callbacks_at_waits, true, "Banjo/Renut",
+                    "Renut's renderer: a game thread entering a kernel wait or a sleep first runs the GPU callbacks "
+                    "(D3DDevice_InsertCallback) the render thread has reached, as the console's GPU interrupt would; "
+                    "off: only Renut's D3D hooks run them")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace renut::gpu {
@@ -39,7 +51,7 @@ std::deque<Callback> g_callbacks;  // inserted, not run yet, in order
 uint64_t g_last_seq = 0;
 // Set while a thread runs callbacks: they run one at a time, in order.
 bool g_running = false;
-// sa2-nx (2026-10-20, sa2_renut_callbacks_fast): g_callbacks.size(), kept with it under g_mutex and read without it.
+// banjo-nx (2026-10-20, from sa2-nx, banjo_renut_callbacks_fast): g_callbacks.size(), kept with it under g_mutex and read without it.
 // A hook that reads 0 while another thread inserts one runs it at its next call; on the inserting thread the count is
 // in program order.
 std::atomic<size_t> g_waiting{0};
@@ -47,6 +59,12 @@ std::atomic<size_t> g_waiting{0};
 } // namespace
 
 void InsertCallback(u32 function, u32 context) {
+  // culdcept-nx (banjo_renut_callbacks_at_waits): set once, at the game's first callback.
+  static std::once_flag wait_hook_once;
+  std::call_once(wait_hook_once, [] {
+    if (REXCVAR_GET(banjo_renut_callbacks_at_waits))
+      rex::system::SetGuestWaitHook(&RunReadyCallbacks);
+  });
   uint64_t seq;
   {
     std::lock_guard lock(g_mutex);
@@ -67,17 +85,17 @@ uint64_t LastCallback() {
   return g_last_seq;
 }
 
-std::atomic<int> g_hook_fast_paths{0};  // sa2-nx: callbacks.h
+std::atomic<int> g_hook_fast_paths{0};  // banjo-nx (from sa2-nx): callbacks.h
 
 bool HookFastPathsInit() {
-  const bool on = REXCVAR_GET(sa2_renut_callbacks_fast);
+  const bool on = REXCVAR_GET(banjo_renut_callbacks_fast);
   g_hook_fast_paths.store(on ? 1 : -1, std::memory_order_relaxed);
   return on;
 }
 
 void RunReadyCallbacks() {
   if (HookFastPathsOn() && g_waiting.load(std::memory_order_acquire) == 0)
-    return;  // sa2-nx: nothing inserted and not run
+    return;  // banjo-nx (from sa2-nx): nothing inserted and not run
   const uint64_t reached = render_thread::CallbacksReached();
   std::vector<Callback> ready;
   {

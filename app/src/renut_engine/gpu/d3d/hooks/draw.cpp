@@ -61,10 +61,18 @@ std::mutex g_vertices_scratch_mutex;  // devices call from their own threads
 std::unordered_map<u32, u32> g_vertices_scratch;
 
 u32 VerticesScratch(u32 device) {
+  // ultimate (the base's 24-hour-run fix): a device's scratch never changes once made (the map is never erased), so the
+  // thread's last answers are kept and a Begin*Vertices draw takes the lock only for a device new to its thread.
+  thread_local u32 t_device[4], t_scratch[4];
+  const u32 slot = (device * 2654435761u) >> 30;
+  if (t_device[slot] == device && t_scratch[slot])
+    return t_scratch[slot];
   std::lock_guard lock(g_vertices_scratch_mutex);
   u32 &scratch = g_vertices_scratch[device];
   if (!scratch)
     scratch = records::AllocPhysicalBlock(kVerticesScratchSize);
+  t_device[slot] = device;
+  t_scratch[slot] = scratch;
   return scratch;
 }
 

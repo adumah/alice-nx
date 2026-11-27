@@ -1,5 +1,3 @@
-# alice: third-party code and tools come from the sa2-nx tree beside this repository (RENUT_THIRDPARTY_DIR,
-# RENUT_TOOLS_DIR, set by cmake/alice_renut_gpu.cmake) instead of this app's own folders.
 # reNut native renderer: plume (D3D12 + Vulkan), host shaders, and the Xenos
 # shader cache produced by XenosRecomp (RENUT_RECOMP only).
 #
@@ -10,11 +8,8 @@
 include(ExternalProject)
 
 set(RENUT_GPU_DIR "${CMAKE_CURRENT_LIST_DIR}")
-set(RENUT_XENOS_RECOMP_DIR "${RENUT_THIRDPARTY_DIR}/reblue-XenosRecomp")
-# alice: a project may bring its own shader_common.h (cmake/alice_renut_gpu.cmake: the exponent adjust).
-if(NOT DEFINED RENUT_SHADER_COMMON_DIR)
-    set(RENUT_SHADER_COMMON_DIR "${RENUT_XENOS_RECOMP_DIR}/XenosRecomp")
-endif()
+set(RENUT_XENOS_RECOMP_DIR "${CMAKE_SOURCE_DIR}/thirdparty/reblue-XenosRecomp")
+set(RENUT_SHADER_COMMON_DIR "${RENUT_XENOS_RECOMP_DIR}/XenosRecomp")
 set(RENUT_GPU_GEN_DIR "${CMAKE_BINARY_DIR}/renut_gpu")
 
 set(RENUT_SHADER_DUMP_DIR "${CMAKE_SOURCE_DIR}/shaders" CACHE PATH
@@ -40,7 +35,7 @@ endif()
 
 # plume is read-only and vendored; build it as-is.
 if(NOT TARGET plume)
-    add_subdirectory("${RENUT_THIRDPARTY_DIR}/plume" "${CMAKE_BINARY_DIR}/plume")
+    add_subdirectory("${CMAKE_SOURCE_DIR}/thirdparty/plume" "${CMAKE_BINARY_DIR}/plume")
 endif()
 
 # The shader cache is zstd-compressed and its SPIR-V is smol-v encoded. Only the
@@ -77,7 +72,7 @@ if(CMAKE_HOST_WIN32)
 else()
     # The Linux binary finds libdxcompiler next to it.
     set(RENUT_DXC env "LD_LIBRARY_PATH=${RENUT_XENOS_RECOMP_DIR}/thirdparty/dxc-bin/lib/x64" "${RENUT_DXC_BIN_DIR}/dxc-linux")
-    # alice: the same as one program, for tools that take DXC as a single path (deko3d_host_shader.py --dxc).
+    # alice (madlice-nx): the same as one program, for tools that take DXC as a single path (deko3d_host_shader.py --dxc).
     set(RENUT_DXC_PROGRAM "${CMAKE_BINARY_DIR}/renut_dxc.sh")
     file(WRITE "${RENUT_DXC_PROGRAM}"
          "#!/bin/sh\nLD_LIBRARY_PATH=\"${RENUT_XENOS_RECOMP_DIR}/thirdparty/dxc-bin/lib/x64\" exec \"${RENUT_DXC_BIN_DIR}/dxc-linux\" \"$@\"\n")
@@ -123,13 +118,13 @@ function(renut_host_shader TARGET STEM PROFILE)
     # builds with plume's deko3d back end (docs/deko3d-renderer.md).
     if(BANJO_DEKO3D_HOST_SHADERS)
         set(out "${RENUT_GPU_GEN_DIR}/host_shaders/${STEM}.deko3d.h")
-        set(tool "${RENUT_TOOLS_DIR}/deko3d_host_shader.py")
+        set(tool "${CMAKE_SOURCE_DIR}/../tools/deko3d_host_shader.py")
         add_custom_command(
             OUTPUT "${out}"
             COMMAND ${CMAKE_COMMAND} -E make_directory "${RENUT_GPU_GEN_DIR}/host_shaders"
             COMMAND "${PYTHON_EXECUTABLE}" "${tool}" --dxc ${RENUT_DXC_PROGRAM} --spirv-cross "${BANJO_DEKO3D_SPIRV_CROSS}"
                     --uam "${BANJO_DEKO3D_UAM}" --profile ${PROFILE} --stem ${STEM} --src "${src}" --out "${out}"
-            DEPENDS "${src}" ${host_includes} "${tool}" "${RENUT_TOOLS_DIR}/deko3d_glsl.py"
+            DEPENDS "${src}" ${host_includes} "${tool}" "${CMAKE_SOURCE_DIR}/../tools/deko3d_glsl.py"
             COMMENT "Compiling host shader ${STEM}.hlsl (${PROFILE}, deko3d)"
             VERBATIM)
         target_sources(${TARGET} PRIVATE "${out}")
@@ -217,10 +212,10 @@ function(renut_xenos_shader_cache TARGET)
             COMMAND ${CMAKE_COMMAND} -E env BANJO_HLSL_DUMP_ONLY=1 "${recomp_exe}" "${RENUT_SHADER_DUMP_DIR}"
                     "${RENUT_GPU_GEN_DIR}/early_alpha_pass1.cpp" "${RENUT_SHADER_COMMON_DIR}/shader_common.h"
                     "${early_alpha_dir}"
-            COMMAND "${Python3_EXECUTABLE}" "${RENUT_TOOLS_DIR}/renut_early_alpha.py" "${early_alpha_dir}")
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/../tools/renut_early_alpha.py" "${early_alpha_dir}")
         set(early_alpha_env ${CMAKE_COMMAND} -E env "BANJO_HLSL_OVERRIDE=${early_alpha_dir}")
-        set(early_alpha_depends "${RENUT_TOOLS_DIR}/renut_early_alpha.py"
-                                "${RENUT_TOOLS_DIR}/early_alpha.py")
+        set(early_alpha_depends "${CMAKE_SOURCE_DIR}/../tools/renut_early_alpha.py"
+                                "${CMAKE_SOURCE_DIR}/../tools/early_alpha.py")
     else()
         set(early_alpha_commands)
         set(early_alpha_env)
@@ -267,24 +262,25 @@ function(renut_gpu_setup TARGET)
         ${RENUT_GPU_DIR}/d3d/hooks/draw.cpp
         ${RENUT_GPU_DIR}/d3d/hooks/resource.cpp
         ${RENUT_GPU_DIR}/d3d/hooks/shader.cpp
-        # sa2-nx (2026-10-20): not d3d/hooks/state.cpp (N&B's state setters natively, at N&B's addresses: SA2's own
-        # setters write the device the draws read).
+        # alice (madlice-nx): Alice's own Direct3D runs natively; Katamari's state hooks (d3d/hooks/state.cpp) are not built.
         # Guest-side records, command buffers and callbacks.
         ${RENUT_GPU_DIR}/guest/callbacks.cpp
         ${RENUT_GPU_DIR}/guest/command_buffers.cpp
         ${RENUT_GPU_DIR}/guest/guest_records.cpp
-        # sa2-nx: not guest/photo_capture.cpp and guest/widescreen.cpp (N&B's game code); SA2's screen size instead.
-        ${RENUT_GPU_DIR}/guest/sa2_screen.cpp
+        ${RENUT_GPU_DIR}/guest/sa2_screen.cpp  # alice: the screen size from the game's own surface (instead of widescreen.cpp / photo_capture.cpp)
         # reNut's overlay and the SDK's menus.
         ${RENUT_GPU_DIR}/overlay/app_integration.cpp
         ${RENUT_GPU_DIR}/overlay/overlay_drawer.cpp
         ${RENUT_GPU_DIR}/overlay/overlay_ui.cpp
         # Draws, targets, textures, shaders and formats.
         ${RENUT_GPU_DIR}/render/draw.cpp
+        ${RENUT_GPU_DIR}/render/fetch_filters.cpp  # renut-ultimate (2026-11-16, port 145): tw2de_nx's
         ${RENUT_GPU_DIR}/render/format.cpp
         ${RENUT_GPU_DIR}/render/graphics_options.cpp
         ${RENUT_GPU_DIR}/render/pipeline.cpp
         ${RENUT_GPU_DIR}/render/shader_library.cpp
+        ${RENUT_GPU_DIR}/render/smaa.cpp  # banjo-nx (2026-10-21)
+        ${RENUT_GPU_DIR}/render/ui_scale.cpp  # banjo-nx (2026-10-21, internal resolution)
         ${RENUT_GPU_DIR}/render/surfaces.cpp
         ${RENUT_GPU_DIR}/render/texture_layout.cpp
         ${RENUT_GPU_DIR}/render/textures.cpp
@@ -295,13 +291,38 @@ function(renut_gpu_setup TARGET)
     renut_host_shader(${TARGET} overlay_ps ps_6_0)
     renut_host_shader(${TARGET} present_vs vs_6_0)
     renut_host_shader(${TARGET} present_ps ps_6_0)
+    renut_host_shader(${TARGET} present_lut_ps ps_6_0)  # vivapinata-nx (2026-11-12, vivapinata_present_lut)
     renut_host_shader(${TARGET} depth_resolve_ps ps_6_0)
     renut_host_shader(${TARGET} depth_resolve_ms_ps ps_6_0)
+    renut_host_shader(${TARGET} depth_resolve_float_ps ps_6_0)  # sasrt-nx (2026-11-08, sasrt_gpu_depth_resolve_float_ps)
     renut_host_shader(${TARGET} texture_mip_ps ps_6_0)
     renut_host_shader(${TARGET} resolve_copy_ps ps_6_0)  # banjo-nx (2026-10-18)
+    renut_host_shader(${TARGET} view_fp10_encode_ps ps_6_0)  # halo3-nx (2026-11-03)
+    # blur-nx (2026-11-10/11, port 76; its keys 216 and 220): a multisampled view resolved from the 1x target of its
+    # sample grid; one EDRAM view written into another (edram_inherit.hlsli, four sample forms).
+    renut_host_shader(${TARGET} sample_grid_resolve_ps ps_6_0)
+    renut_host_shader(${TARGET} edram_inherit_ps ps_6_0)
+    renut_host_shader(${TARGET} edram_inherit_src_ms_ps ps_6_0)
+    renut_host_shader(${TARGET} edram_inherit_dst_ms_ps ps_6_0)
+    renut_host_shader(${TARGET} edram_inherit_ms_ms_ps ps_6_0)
+    renut_host_shader(${TARGET} resolve_clamp_ps ps_6_0)  # sasrt-nx (2026-10-20): 16-bit fixed-point resolves
+    renut_host_shader(${TARGET} depth_restore_ps ps_6_0)  # sasrt-nx (2026-10-20): the EDRAM depth restore
+    # banjo-nx (2026-10-21, banjo_renut_smaa): SMAA 1x (render/smaa.cpp; app/thirdparty/smaa, MIT).
+    renut_host_shader(${TARGET} smaa_vs vs_6_0)
+    renut_host_shader(${TARGET} smaa_edge_ps ps_6_0)
+    renut_host_shader(${TARGET} smaa_weights_ps ps_6_0)
+    renut_host_shader(${TARGET} smaa_weights_high_ps ps_6_0)
+    renut_host_shader(${TARGET} smaa_blend_ps ps_6_0)
+    renut_host_shader(${TARGET} smaa_edge_ref_ps ps_6_0)
+    # banjo-nx (2026-10-21, internal resolution): the 3D image scaled to the display's resolution (render/ui_scale.cpp).
+    renut_host_shader(${TARGET} ui_upscale_ps ps_6_0)
+    renut_host_shader(${TARGET} ui_upscale_bicubic_ps ps_6_0)
+    renut_host_shader(${TARGET} ui_depth_upscale_ps ps_6_0)
     renut_host_shader(${TARGET} rectangle_list_gs gs_6_0)
     renut_host_shader(${TARGET} point_sprite_gs gs_6_0)
     renut_host_shader(${TARGET} stream_convert_cs cs_6_0)
+    renut_host_shader(${TARGET} fetch_copy_cs cs_6_0)  # sasrt-nx (2026-11-08, sasrt_gpu_fetch_copy_compute)
+    renut_host_shader(${TARGET} texel_readback_cs cs_6_0)  # sasrt-nx (2026-11-08, sasrt_gpu_texel_readback_compute)
     renut_host_shader(${TARGET} target_readback_cs cs_6_0)
 
     renut_xenos_shader_cache(${TARGET})
@@ -321,7 +342,7 @@ function(renut_gpu_setup TARGET)
     # polls input), which pulled the overlay's context away mid-frame. Compiled
     # into the executable, these definitions take precedence over rexruntime's
     # imports; the headers go ahead of the SDK's identical ones.
-    set(RENUT_IMGUI_DIR "${RENUT_THIRDPARTY_DIR}/imgui")
+    set(RENUT_IMGUI_DIR "${CMAKE_SOURCE_DIR}/thirdparty/imgui")
     set(renut_imgui_sources
         "${RENUT_IMGUI_DIR}/imgui.cpp"
         "${RENUT_IMGUI_DIR}/imgui_draw.cpp"

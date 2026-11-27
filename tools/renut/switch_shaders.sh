@@ -7,10 +7,10 @@
 #   tools/renut/switch_shaders.sh          (after tools/host_shaders.sh and tools/deko3d_build_tools.sh)
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-tools="$root/tools/renut"
+tools="$root/tools"  # the base's shader tools (this folder keeps only Alice's own)
 sh="$root/out/deko3d_shaders"
 recomp="$root/out/pc/xenos_recomp/build/XenosRecomp/XenosRecomp"
-common="$root/app/src/renut_engine/gpu/shaders/xenos/shader_common.h"
+common="$root/app/thirdparty/reblue-XenosRecomp/XenosRecomp/shader_common.h"
 [[ -x "$recomp" ]] || { echo "no $recomp: run tools/host_shaders.sh first" >&2; exit 1; }
 cd "$root"
 

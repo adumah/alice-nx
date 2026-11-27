@@ -1,0 +1,2 @@
+# Alice has no hand-written natives of the base kind. The base's tools (reg_liveness, dead_ctx_defs,
+# leaf_dead_stores) read this file: one native per line, the address first. Empty on purpose.
